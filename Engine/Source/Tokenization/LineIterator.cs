@@ -12,7 +12,7 @@
  * them behave as a value type is more intuitive.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -124,6 +124,27 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 				CalculateBounds(boundsMode, out rawTextStart, out rawTextEnd, out tokenStart, out tokenEnd);
 				
 				return new TokenIterator(tokenizer, tokenStart, rawTextStart, tokenizer.StartingLineNumber + lineIndex);
+				}
+			}
+			
+			
+		/* Function: LastToken
+		 * Returns a <TokenIterator> at the end of the current line.  If the iterator is out of bounds it will be 
+		 * set to one past the last token, regardless of which edge it has gone off.
+		 */
+		public TokenIterator LastToken (LineBoundsMode boundsMode)
+			{
+			if (!IsInBounds)
+				{  
+				return new TokenIterator(tokenizer, tokenizer.TokenCount, tokenizer.RawText.Length, 
+													tokenizer.StartingLineNumber + tokenizer.Lines.Count - 1);
+				}
+			else
+				{
+				int rawTextStart, rawTextEnd, tokenStart, tokenEnd;
+				CalculateBounds(boundsMode, out rawTextStart, out rawTextEnd, out tokenStart, out tokenEnd);
+				
+				return new TokenIterator(tokenizer, tokenEnd, rawTextEnd, tokenizer.StartingLineNumber + lineIndex + 1);
 				}
 			}
 			

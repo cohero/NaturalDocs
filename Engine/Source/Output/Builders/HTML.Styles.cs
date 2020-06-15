@@ -33,7 +33,7 @@
  *		
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -473,7 +473,7 @@ namespace CodeClear.NaturalDocs.Engine.Output.Builders
 			if (outputFile == null)
 				{  return;  }
 
-			if (file.Status == FileFlags.Deleted)
+			if (file.Deleted)
 				{
 				if (System.IO.File.Exists(outputFile))
 					{  

@@ -6,7 +6,7 @@
  * 
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -184,7 +184,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					TokenIterator podLineStart, podLineEnd;
 					lineIterator.GetBounds(LineBoundsMode.CommentContent, out podLineStart, out podLineEnd);
 
-					lineIterator.Tokenizer.SetCommentParsingTypeBetween(podLineStart, podLineEnd, CommentParsingType.CommentSymbol);
+					podLineStart.SetCommentParsingTypeBetween(podLineEnd, CommentParsingType.CommentSymbol);
 
 					if (podLineType == PODLineType.StartNaturalDocs ||
 						podLineType == PODLineType.StartJavadoc)
@@ -209,7 +209,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 								if (podLineType == PODLineType.End)
 									{
 									lineIterator.GetBounds(LineBoundsMode.CommentContent, out podLineStart, out podLineEnd);
-									lineIterator.Tokenizer.SetCommentParsingTypeBetween(podLineStart, podLineEnd, CommentParsingType.CommentSymbol);
+									podLineStart.SetCommentParsingTypeBetween(podLineEnd, CommentParsingType.CommentSymbol);
 
 									lineIterator.Next();
 									}

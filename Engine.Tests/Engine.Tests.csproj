@@ -107,10 +107,16 @@
     <Compile Include="Source\Languages\C#\CommentDetection.cs" />
     <Compile Include="Source\Languages\C#\CommentMerging.cs" />
     <Compile Include="Source\Languages\C#\PrototypeParsing.cs" />
+    <Compile Include="Source\Languages\Lua\CommentDetection.cs" />
     <Compile Include="Source\Languages\Perl\CommentDetection.cs" />
     <Compile Include="Source\Languages\Python\ClassPrototypeParsing.cs" />
+    <Compile Include="Source\Languages\Python\PrototypeParsing.cs" />
     <Compile Include="Source\Languages\Ruby\ClassPrototypeParsing.cs" />
     <Compile Include="Source\Languages\Shebang Script\LanguageDetection.cs" />
+    <Compile Include="Source\Languages\Java\PrototypeDetection.cs" />
+    <Compile Include="Source\Languages\Java\PrototypeParsing.cs" />
+    <Compile Include="Source\Languages\SQL\PrototypeDetection.cs" />
+    <Compile Include="Source\Languages\SQL\PrototypeParsing.cs" />
     <Compile Include="Source\Output\HTML\Anchors.cs" />
     <Compile Include="Source\Output\HTML\ClassPrototypes\BasicSupport.cs" />
     <Compile Include="Source\Output\HTML\ClassPrototypes\Python.cs" />
@@ -119,6 +125,9 @@
     <Compile Include="Source\Output\HTML\Links.cs" />
     <Compile Include="Source\Output\HTML\ParameterLists.cs" />
     <Compile Include="Source\Output\HTML\Prototypes\BasicSupport.cs" />
+    <Compile Include="Source\Output\HTML\Prototypes\Python.cs" />
+    <Compile Include="Source\Output\HTML\Prototypes\Java.cs" />
+    <Compile Include="Source\Output\HTML\Prototypes\SQL.cs" />
     <Compile Include="Source\Output\HTML\Prototypes\CSharp.cs" />
     <Compile Include="Source\Output\HTML\SyntaxHighlighting\BasicSupport.cs" />
     <Compile Include="Source\Output\HTML\SyntaxHighlighting\CSharp.cs" />
@@ -126,7 +135,7 @@
     <Compile Include="Source\SearchIndex\Keywords.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="nunit.framework, Version=2.5.10.11092, Culture=neutral, PublicKeyToken=96d09a1eb7f44a77, processorArchitecture=MSIL">
+    <Reference Include="nunit.framework, Version=3.11.0.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>Resources\NUnit\nunit.framework.dll</HintPath>
     </Reference>

@@ -26,7 +26,7 @@
  *		its own <Connection> object and use only Queries created by that object.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -90,7 +90,7 @@ namespace CodeClear.NaturalDocs.Engine.SQLite
 				int sqlByteLength;
 
 				#if SQLITE_UTF16
-				sqlByteLength = System.Text.Encoding.UTF16.GetByteCount(statement);
+				sqlByteLength = System.Text.Encoding.Unicode.GetByteCount(statement);
 				#elif SQLITE_UTF8
 				sqlByteLength = System.Text.Encoding.UTF8.GetByteCount(statement);
 				#else

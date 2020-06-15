@@ -7,13 +7,13 @@
  * 
  * Multithreading: Thread Safety Notes
  * 
- *		<AddAllFiles()> is the only function that is allowed to alter <addAllFilesStatus>.  However, other threads may read its 
+ *		<AddAllFiles()> is the only function that is allowed to alter <adderStatus>.  However, other threads may read its 
  *		values at any time.  Since they are all integer counters and are only used for informational purposes, no thread 
  *		synchronization is necessary.
  * 
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -36,9 +36,6 @@ namespace CodeClear.NaturalDocs.Engine.Files
 		public FileSource (Files.Manager manager)
 			{
 			this.manager = manager;
-
-			addAllFilesStatus = new AddAllFilesStatus();
-			claimed = false;
 			}
 			
 		
@@ -71,30 +68,16 @@ namespace CodeClear.NaturalDocs.Engine.Files
 		 */
 		abstract public Path MakeAbsolute (Path path);
 		
-		
-		/* Function: AddAllFiles
-		 * Iterates through every file in the source and calls <Files.Manager.AddOrUpdateFile()> for each one.
+
+
+		// Group: Processes
+		// __________________________________________________________________________
+
+
+		/* Function: CreateAdderProcess
+		 * Creates a new <FileSourceAdder> that can be used with this FileSource.
 		 */
-		abstract public void AddAllFiles (CancelDelegate cancelDelegate);
-		
-		
-		/* Function: GetAddAllFilesStatus
-		 * Fills the passed object with the current status of <AddAllFiles()>.  The passed object will contain a snapshot of the status,
-		 * not a continuously updating object, so the values won't change out from under you.
-		 */
-		public void GetAddAllFilesStatus (ref AddAllFilesStatus statusTarget)
-			{
-			statusTarget.CopyFrom(addAllFilesStatus);
-			}
-			
-			
-		/* Function: CombineAddAllFilesStatus
-		 * Adds the current status numbers to the passed object.
-		 */
-		public void CombineAddAllFilesStatus (ref AddAllFilesStatus statusTarget)
-			{
-			statusTarget.Add(addAllFilesStatus);
-			}
+		abstract public FileSourceAdder CreateAdderProcess ();
 			
 		
 		
@@ -156,28 +139,6 @@ namespace CodeClear.NaturalDocs.Engine.Files
 			get
 				{  return null;  }
 			}
-			
-			
-		/* Property: AllFilesAdded
-		 * Whether all files have been added via <AddAllFiles()>.
-		 */
-		public bool AllFilesAdded
-			{
-			get
-				{  return addAllFilesStatus.Completed;  }
-			}
-			
-			
-		/* Property: Claimed
-		 * Whether the file source is claimed by a thread for processing with <AddAllFiles()>.
-		 */
-		public bool Claimed
-			{
-			get
-				{  return claimed;  }
-			set
-				{  claimed = value;  }
-			}
 
 
 
@@ -186,9 +147,5 @@ namespace CodeClear.NaturalDocs.Engine.Files
 
 		protected Files.Manager manager;		
 		
-		protected AddAllFilesStatus addAllFilesStatus;
-		
-		protected bool claimed;
-
 		}
 	}

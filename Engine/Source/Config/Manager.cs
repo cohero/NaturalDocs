@@ -18,7 +18,7 @@
  *		
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -187,10 +187,11 @@ namespace CodeClear.NaturalDocs.Engine.Config
 				{
 				try
 					{  System.IO.Directory.CreateDirectory(workingDataFolder);  }
-				catch
+				catch (Exception e)
 					{
 					errorList.Add(
-						message: Locale.Get("NaturalDocs.Engine", "Error.CantCreateWorkingDataFolder(name)", workingDataFolder),
+						message: Locale.Get("NaturalDocs.Engine", "Error.CantCreateWorkingDataFolder(name, exception)", 
+														workingDataFolder, e.Message),
 						property: "WorkingDataFolder"
 						);
 					
@@ -1058,52 +1059,6 @@ namespace CodeClear.NaturalDocs.Engine.Config
 			{
 			get
 				{  return systemDefaultConfig;  }
-			}
-
-
-		/* Property: UsingUnix
-		 * True if the program is running in Unix.
-		 */
-		static public bool UsingUnix
-			{
-			get
-				{
-				// Early versions of Mono returned 128 as the value, whereas PlatformID.Unix is 4.
-				// There's also now OS X which is 6.
-				return ( System.Environment.OSVersion.Platform == PlatformID.Unix ||
-							  System.Environment.OSVersion.Platform == PlatformID.MacOSX ||
-							  (int)System.Environment.OSVersion.Platform == 128);
-				}
-			}
-			
-			
-		/* Property: PathSeparatorCharacter
-		 * The path separator character for the current platform, such as slash or backslash.
-		 */
-		static public char PathSeparatorCharacter
-			{
-			get
-				{ 
-				if (UsingUnix == true)
-					{  return '/';  }
-				else  // all others are variants of Windows
-					{  return '\\';  }
-				}
-			}
-			
-			
-		/* Property: IgnoreCaseInPaths
-		 * Whether paths are case sensitive on the current platform.
-		 */
-		static public bool IgnoreCaseInPaths
-			{
-			get
-				{
-				if (UsingUnix == true)
-					{  return false;  }
-				else  // all others are variants of Windows
-					{  return true;  }
-				}
 			}
 
 

@@ -5,7 +5,7 @@
  * The main application class for the command line interface to Natural Docs.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -85,6 +85,12 @@ namespace CodeClear.NaturalDocs.CLI
 				else if (parseCommandLineResult == ParseCommandLineResult.ShowVersion)
 					{
 					ShowVersion();
+					gracefulExit = true;
+					}
+
+				else if (parseCommandLineResult == ParseCommandLineResult.ShowAllVersions)
+					{
+					ShowAllVersions();
 					gracefulExit = true;
 					}
 
@@ -179,43 +185,50 @@ namespace CodeClear.NaturalDocs.CLI
 						
 				executionTimer.Start("Finding Source Files");
 
-				using ( StatusManagers.FileSearch statusManager = new StatusManagers.FileSearch() )
+				var adderProcess = EngineInstance.Files.CreateAdderProcess();
+
+				using ( StatusManagers.FileSearch statusManager = new StatusManagers.FileSearch(adderProcess) )
 					{
 					statusManager.Start();
 							
-					Multithread("File Adder", EngineInstance.Files.WorkOnAddingAllFiles);
+					Multithread("File Adder", adderProcess.WorkOnAddingAllFiles);
 							
 					statusManager.End();
 					}
 							
-				EngineInstance.Files.DeleteFilesNotInFileSources( Engine.Delegates.NeverCancel );
+				EngineInstance.Files.DeleteFilesNotReAdded( Engine.Delegates.NeverCancel );
+				adderProcess.Dispose();
 							
 				executionTimer.End("Finding Source Files");
 
 						
 				// Rebuild notice
 
-				string alternateStartMessage = null;
+				string alternativeStartMessage = null;
 						
 				if (reparseEverythingFromCommandLine || rebuildAllOutputFromCommandLine)
-					{  alternateStartMessage = "Status.RebuildEverythingByRequest";  }
+					{  alternativeStartMessage = "Status.RebuildEverythingByRequest";  }
 				else if (EngineInstance.Config.ReparseEverything && EngineInstance.Config.RebuildAllOutput)
-					{  alternateStartMessage = "Status.RebuildEverythingAutomatically";  }
+					{  alternativeStartMessage = "Status.RebuildEverythingAutomatically";  }
 							
 							
 				// Parsing
 						
 				executionTimer.Start("Parsing Source Files");
 
-				using ( StatusManagers.Parsing statusManager = new StatusManagers.Parsing(alternateStartMessage) )
+				var changeProcessor = EngineInstance.Files.CreateChangeProcessor();
+
+				using ( StatusManagers.Parsing statusManager = new StatusManagers.Parsing(changeProcessor, alternativeStartMessage) )
 					{
 					statusManager.Start();
 					totalFileChanges = statusManager.TotalFilesToProcess;
 
-					Multithread("Parser", EngineInstance.FileProcessor.WorkOnProcessingChanges);							
+					Multithread("Parser", changeProcessor.WorkOnProcessingChanges);							
 							
 					statusManager.End();
 					}
+
+				changeProcessor.Dispose();
 							
 				executionTimer.End("Parsing Source Files");
 
@@ -224,14 +237,18 @@ namespace CodeClear.NaturalDocs.CLI
 						
 				executionTimer.Start("Resolving Links");
 
-				using ( StatusManagers.ResolvingLinks statusManager = new StatusManagers.ResolvingLinks() )
+				var resolverProcess = EngineInstance.Links.CreateResolverProcess();
+
+				using ( StatusManagers.ResolvingLinks statusManager = new StatusManagers.ResolvingLinks(resolverProcess) )
 					{
 					statusManager.Start();
 
-					Multithread("Resolver", EngineInstance.Links.WorkOnResolvingLinks);
+					Multithread("Resolver", resolverProcess.WorkOnResolvingLinks);
 							
 					statusManager.End();
 					}
+
+				resolverProcess.Dispose();
 							
 				executionTimer.End("Resolving Links");
 
@@ -273,6 +290,14 @@ namespace CodeClear.NaturalDocs.CLI
 		private static bool CreateProjectConfiguration (ErrorList errorList)
 			{
 			ShowConsoleHeader();
+
+			if (System.IO.Directory.Exists(commandLineConfig.ProjectConfigFolder) == false)
+				{
+				errorList.Add(
+					Engine.Locale.Get("NaturalDocs.Engine", "Error.ProjectConfigFolderDoesntExist(name)", commandLineConfig.ProjectConfigFolder)
+					);
+				return false;
+				}
 
 			System.Console.WriteLine(
 				Engine.Locale.Get("NaturalDocs.CLI", "Status.CreatingProjectConfigFiles")
@@ -322,6 +347,64 @@ namespace CodeClear.NaturalDocs.CLI
 		private static void ShowVersion ()
 			{
 			Console.WriteLine( Engine.Instance.VersionString );
+			}
+
+
+		private static void ShowAllVersions ()
+			{
+
+			// Collect versions in try blocks in case there are any errors
+
+			string dotNETVersion = null;
+			string monoVersion = null;
+			string osNameAndVersion = null;
+			string sqliteVersion = null;
+
+			try { dotNETVersion = Engine.SystemInfo.dotNETVersion; } catch {  }
+			try { monoVersion = Engine.SystemInfo.MonoVersion; } catch {  }
+			try { osNameAndVersion = Engine.SystemInfo.OSNameAndVersion; } catch {  }
+			try { sqliteVersion = Engine.SystemInfo.SQLiteVersion; } catch {  }
+
+
+			// Output versions
+
+			Console.WriteLine("Natural Docs: " + Instance.VersionString);
+
+			if (osNameAndVersion != null)
+				{  Console.WriteLine("    Platform: " + osNameAndVersion);  }
+			else
+				{  Console.WriteLine("Couldn't get OS name and version");  }
+
+			// There's a possibility of Natural Docs being run through Mono on Windows
+			if (Engine.SystemInfo.OnUnix || monoVersion != null)
+				{
+				if (monoVersion != null)
+					{  Console.WriteLine("        Mono: " + monoVersion);  }
+				else
+					{  Console.WriteLine("Couldn't get Mono version");  }
+				}
+			else
+				{  
+				if (dotNETVersion != null)
+					{  Console.WriteLine("        .NET: " + dotNETVersion);  }
+				else
+					{  Console.WriteLine("Couldn't get .NET version");  }
+				}
+
+			if (sqliteVersion != null)
+				{  Console.WriteLine("      SQLite: " + sqliteVersion);  }
+			else
+				{  Console.WriteLine("Couldn't get SQLite version");  }
+				
+
+			// Include a notice for outdated Mono versions
+
+			if (Engine.SystemInfo.MonoVersionTooOld)
+				{
+				Console.WriteLine();
+				Console.WriteLine( Locale.SafeGet("NaturalDocs.Engine", "CrashReport.OutdatedMono", 
+											"You appear to be using a very outdated version of Mono.  This has been known to cause Natural Docs to crash.  Please update it to a more recent version.") );
+				}
 			}
 
 

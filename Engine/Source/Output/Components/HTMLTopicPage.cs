@@ -20,7 +20,7 @@
  * 
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -221,7 +221,10 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 					// Build the HTML for the list of topics
 
 					StringBuilder html = new StringBuilder("\r\n\r\n");
-					HTMLTopic topicBuilder = new HTMLTopic(this);
+
+					HTML.Context context = new HTML.Context(HTMLBuilder, this);
+					HTML.Components.Topic topicBuilder = new HTML.Components.Topic(context);
+					HTML.Components.Tooltip tooltipBuilder = new HTML.Components.Tooltip(context);
 
 					// We don't put embedded topics in the output, so we need to find the last non-embedded one to make
 					// sure that the "last" CSS tag is correctly applied.
@@ -240,7 +243,7 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 
 						if (topics[i].IsEmbedded == false)
 							{
-							topicBuilder.Build(topics[i], links, linkTargets, html, topics, i + 1, extraClass);  
+							topicBuilder.AppendTopic(topics[i], context, links, linkTargets, html, topics, i + 1, extraClass);  
 							html.Append("\r\n\r\n");
 							}
 						}
@@ -263,7 +266,7 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 						for (int i = 0; i < linkTargets.Count; i++)
 							{
 							Topic topic = linkTargets[i];
-							string toolTipHTML = topicBuilder.BuildToolTip(topic, summaryLinks);
+							string toolTipHTML = tooltipBuilder.BuildToolTip(topic, context, summaryLinks);
 
 							if (toolTipHTML != null)
 								{

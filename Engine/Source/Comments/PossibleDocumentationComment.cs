@@ -5,7 +5,7 @@
  * A class representing a comment found in source code which could possibly contain documentation.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -98,7 +98,7 @@ namespace CodeClear.NaturalDocs.Engine.Comments
 				Tokenization.TokenIterator firstToken = start.FirstToken(Tokenization.LineBoundsMode.Everything);
 				Tokenization.TokenIterator endToken = end.FirstToken(Tokenization.LineBoundsMode.Everything);
 
-				return firstToken.Tokenizer.TextBetween(firstToken, endToken);
+				return firstToken.TextBetween(endToken);
 				}
 			}
 			

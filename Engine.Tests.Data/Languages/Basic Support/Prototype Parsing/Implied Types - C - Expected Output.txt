@@ -1,6 +1,7 @@
-- Before Parameters: void FunctionA (
-  - Access Level: Unknown
-  - Link Candidates: void
+- Parameter Section:
+  - Before Parameters: void FunctionA (
+    - Access Level: Unknown
+    - Link Candidates: void
 
   - Parameter 1: int x,
     - Name: x
@@ -16,12 +17,15 @@
     - Link Candidates: (none)
     - Default Value: (not detected)
 
-- After Parameters: )
-  - Link Candidates: (none)
------
-- Before Parameters: void FunctionB (
-  - Access Level: Unknown
-  - Link Candidates: void
+  - After Parameters: )
+    - Link Candidates: (none)
+
+------------------------------
+
+- Parameter Section:
+  - Before Parameters: void FunctionB (
+    - Access Level: Unknown
+    - Link Candidates: void
 
   - Parameter 1: int a,
     - Name: a
@@ -51,12 +55,15 @@
     - Link Candidates: (none)
     - Default Value: (not detected)
 
-- After Parameters: )
-  - Link Candidates: (none)
------
-- Before Parameters: void FunctionC (
-  - Access Level: Unknown
-  - Link Candidates: void
+  - After Parameters: )
+    - Link Candidates: (none)
+
+------------------------------
+
+- Parameter Section:
+  - Before Parameters: void FunctionC (
+    - Access Level: Unknown
+    - Link Candidates: void
 
   - Parameter 1: int a[5],
     - Name: a
@@ -100,12 +107,15 @@
     - Link Candidates: (none)
     - Default Value: (not detected)
 
-- After Parameters: )
-  - Link Candidates: (none)
------
-- Before Parameters: void FunctionD (
-  - Access Level: Unknown
-  - Link Candidates: void
+  - After Parameters: )
+    - Link Candidates: (none)
+
+------------------------------
+
+- Parameter Section:
+  - Before Parameters: void FunctionD (
+    - Access Level: Unknown
+    - Link Candidates: void
 
   - Parameter 1: int* a,
     - Name: a
@@ -149,12 +159,15 @@
     - Link Candidates: (none)
     - Default Value: (not detected)
 
-- After Parameters: )
-  - Link Candidates: (none)
------
-- Before Parameters: void FunctionE (
-  - Access Level: Unknown
-  - Link Candidates: void
+  - After Parameters: )
+    - Link Candidates: (none)
+
+------------------------------
+
+- Parameter Section:
+  - Before Parameters: void FunctionE (
+    - Access Level: Unknown
+    - Link Candidates: void
 
   - Parameter 1: int** a,
     - Name: a
@@ -184,5 +197,5 @@
     - Link Candidates: float
     - Default Value: (not detected)
 
-- After Parameters: )
-  - Link Candidates: (none)
+  - After Parameters: )
+    - Link Candidates: (none)

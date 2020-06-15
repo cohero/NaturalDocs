@@ -13,7 +13,7 @@
  * 
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -87,59 +87,18 @@ namespace CodeClear.NaturalDocs.Engine.Output.Styles
 			throw new InvalidOperationException();
 			}
 
-		/* Function: AddAllFiles
-		 * Calls <Files.Manager.AddOrUpdateFile()> for every file in the folder and its subfolders.
+
+
+		// Group: Processes
+		// __________________________________________________________________________
+
+
+		/* Function: CreateAdderProcess
+		 * Creates a <Files.FileSourceAdder> that can be used with this FileSource.
 		 */
-		override public void AddAllFiles (CancelDelegate cancelDelegate)
-			{ 
-			addAllFilesStatus.Reset();
-
-			// String stack instead of Path stack because the IO functions will return strings and there's no need to normalize
-			// them all or otherwise use Path functions on them.
-			Stack<string> foldersToSearch = new Stack<string>();
-			foldersToSearch.Push(EngineInstance.Config.SystemStyleFolder);
-			foldersToSearch.Push(EngineInstance.Config.ProjectConfigFolder);
-			
-			while (foldersToSearch.Count > 0)
-			   {
-			   string folder = foldersToSearch.Pop();
-			   string[] subfolders = System.IO.Directory.GetDirectories(folder);
-				
-			   if (cancelDelegate())
-			      {  return;  }
-			
-			   foreach (string subfolder in subfolders)
-			      {  foldersToSearch.Push(subfolder);  }
-
-			   string[] files = System.IO.Directory.GetFiles(folder);
-				
-			   if (cancelDelegate())
-			      {  return;  }
-
-			   // This is deliberately not batched to increase parallelism.  Reading all the file modification times could potentially be
-			   // a long, IO intensive operation if there are a lot of files in a folder.  It would be more efficient in a single threaded
-			   // application to put off triggering the change notifications for each one, but in a multithreaded application it's 
-			   // preventing other file sources from searching and/or parsers from working on the files already found.
-			
-			   foreach (string file in files)
-			      {
-			      if (cancelDelegate())
-			         {  return;  }
-
-					Path filePath = file;
-
-					foreach (Style style in styles)
-						{
-						if (style.Contains(filePath))
-							{  
-							Manager.AddOrUpdateFile(filePath, Files.FileType.Style, System.IO.File.GetLastWriteTimeUtc(file), forceReparse);
-							break;
-							}
-						}
-			      }
-			   }
-
-			addAllFilesStatus.Completed = true;
+		override public Files.FileSourceAdder CreateAdderProcess ()
+			{
+			return new Styles.FileSourceAdder(this, EngineInstance);
 			}
 
 
@@ -168,6 +127,16 @@ namespace CodeClear.NaturalDocs.Engine.Output.Styles
 			{
 			get 
 				{  return Files.InputType.Style;  }
+			}
+
+
+		/* Property: Styles
+		 * All the <Styles> referenced by the builders.
+		 */
+		public IList<Style> Styles
+			{
+			get
+				{  return styles;  }
 			}
 
 

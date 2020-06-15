@@ -11,7 +11,7 @@
  *			
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -49,7 +49,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			extensions = new StringTable<Language>(KeySettingsForExtensions);
 			shebangStrings = new SortedStringTable<Language>(new ShebangStringComparer(), KeySettingsForShebangStrings);
 			
-			predefinedLanguages = new Language[6];
+			predefinedLanguages = new Language[9];
 			
 			predefinedLanguages[0] = new Language(this, "Text File");
 			predefinedLanguages[0].Type = Language.LanguageType.TextFile;
@@ -69,6 +69,15 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			
 			predefinedLanguages[5] = new Languages.Parsers.Ruby(this);
 			predefinedLanguages[5].Predefined = true;
+
+			predefinedLanguages[6] = new Languages.Parsers.SQL(this);
+			predefinedLanguages[6].Predefined = true;
+
+			predefinedLanguages[7] = new Languages.Parsers.Java(this);
+			predefinedLanguages[7].Predefined = true;
+
+			predefinedLanguages[8] = new Languages.Parsers.Lua(this);
+			predefinedLanguages[8].Predefined = true;
 			}
 
 
@@ -294,7 +303,13 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			// binary files in case the generation method changes in a future version.
 
 			foreach (Language language in languages)
-				{  language.GenerateAlternateCommentStyles();  }
+				{
+				if (language.Type == Language.LanguageType.BasicSupport)
+					{  
+					language.GenerateJavadocCommentStrings();
+					language.GenerateXMLCommentStrings();
+					}
+				}
 
 			
 			// Compare the structures with the binary ones to see if anything changed.

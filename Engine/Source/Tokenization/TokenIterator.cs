@@ -13,7 +13,7 @@
  * them behave as a value type is more intuitive.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -112,12 +112,18 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 			
 			
 		/* Function: NextPastWhitespace
-		 * Moves forward until past all whitespace tokens or the limit is reached.
+		 * Moves forward until past all whitespace tokens or the limit is reached.  Returns whether it moved.
 		 */
-		public void NextPastWhitespace (TokenIterator limit)
+		public bool NextPastWhitespace (TokenIterator limit)
 			{
-			while (FundamentalType == FundamentalType.Whitespace && this < limit)
+			if (FundamentalType != FundamentalType.Whitespace || this >= limit)
+				{  return false;  }
+
+			do
 				{  Next();  }
+			while (FundamentalType == FundamentalType.Whitespace && this < limit);
+
+			return true;
 			}
 			
 			
@@ -191,7 +197,7 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 			
 		/* Function: PreviousPastWhitespace
 		 * 
-		 * Moves backwards until past all whitespace tokens.
+		 * Moves backwards until past all whitespace tokens.  Returs whether it moved.
 		 * 
 		 * Parameters:
 		 * 
@@ -203,12 +209,18 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 		 *					 whitespace.  This is useful if you're using it as an independent iterator and want it to be on a non-whitespace
 		 *					 token.
 		 */
-		public void PreviousPastWhitespace (PreviousPastWhitespaceMode mode)
+		public bool PreviousPastWhitespace (PreviousPastWhitespaceMode mode)
 			{
 			if (mode == PreviousPastWhitespaceMode.Iterator)
 				{
-				while (FundamentalType == Tokenization.FundamentalType.Whitespace)
+				if (FundamentalType != Tokenization.FundamentalType.Whitespace)
+					{  return false;  }
+
+				do
 					{  Previous();  }
+				while (FundamentalType == Tokenization.FundamentalType.Whitespace);
+
+				return true;
 				}
 
 			else if (mode == PreviousPastWhitespaceMode.EndingBounds)
@@ -216,18 +228,27 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 				TokenIterator temp = this;
 				temp.Previous();
 
-				while (temp.FundamentalType == FundamentalType.Whitespace)
+				if (temp.FundamentalType != FundamentalType.Whitespace)
+					{  return false;  }
+
+				do
 					{  
 					this = temp;
 					temp.Previous();
 					}
+				while (temp.FundamentalType == FundamentalType.Whitespace);
+
+				return true;
 				}
+
+			else
+				{  throw new NotImplementedException();  }
 			}
 
 
 		/* Function: PreviousPastWhitespace
 		 * 
-		 * Moves backwards until past all whitespace tokens or it reaches the limit.
+		 * Moves backwards until past all whitespace tokens or it reaches the limit.  Returns whether it moved.
 		 * 
 		 * Parameters:
 		 * 
@@ -239,12 +260,18 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 		 *					 whitespace.  This is useful if you're using it as an independent iterator and want it to be on a non-whitespace
 		 *					 token.
 		 */
-		public void PreviousPastWhitespace (PreviousPastWhitespaceMode mode, TokenIterator limit)
+		public bool PreviousPastWhitespace (PreviousPastWhitespaceMode mode, TokenIterator limit)
 			{
 			if (mode == PreviousPastWhitespaceMode.Iterator)
 				{
-				while (FundamentalType == Tokenization.FundamentalType.Whitespace && this > limit)
+				if (FundamentalType != Tokenization.FundamentalType.Whitespace || this <= limit)
+					{  return false;  }
+
+				do
 					{  Previous();  }
+				while (FundamentalType == Tokenization.FundamentalType.Whitespace && this > limit);
+
+				return true;
 				}
 
 			else if (mode == PreviousPastWhitespaceMode.EndingBounds)
@@ -252,12 +279,21 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 				TokenIterator temp = this;
 				temp.Previous();
 
-				while (temp.FundamentalType == FundamentalType.Whitespace && temp >= limit)
+				if (temp.FundamentalType != FundamentalType.Whitespace || temp < limit)
+					{  return false;  }
+
+				do
 					{  
 					this = temp;
 					temp.Previous();
 					}
+				while (temp.FundamentalType == FundamentalType.Whitespace && temp >= limit);
+
+				return true;
 				}
+
+			else
+				{  throw new NotImplementedException();  }
 			}
 
 
@@ -459,6 +495,16 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 			}
 
 
+		/* Function: TextBetween
+		 * Returns the text between the two passed iterators.  If you plan to add it to a StringBuilder, it is more efficient to call
+		 * <AppendTextBetweenTo()> instead because that won't require the creation of an intermediate string.
+		 */
+		public string TextBetween (TokenIterator end)
+			{
+			return Tokenizer.TextBetween(this, end);
+			}
+
+
 		/* Function: AppendTokenTo
 		 * Appends the token to the passed StringBuilder.  This is more efficient than appending the result of <String>
 		 * because it copies directly from the source without creating an intermediate string.
@@ -471,6 +517,17 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 				{  output.Append(tokenizer.RawText[rawTextIndex]);  }
 			else if (length > 1)
 				{  output.Append(tokenizer.RawText, rawTextIndex, length);  }
+			}
+			
+			
+		/* Function: AppendTextBetweenTo
+		 * Appends the text between the two passed iterators to the passed StringBuilder.  This is more effecient than appending
+		 * the result from <TextBetween()> because it transfers directly from the raw text to the StringBuilder without creating 
+		 * an intermediate string.
+		 */
+		public void AppendTextBetweenTo (TokenIterator end, System.Text.StringBuilder output)
+			{
+			Tokenizer.AppendTextBetweenTo(this, end, output);
 			}
 			
 			
@@ -504,6 +561,16 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 			}
 
 			
+		/* Function: SetCommentParsingTypeBetween
+		 * Changes the <CommentParsingType> of all the tokens between the current position and the passed iterator.
+		 * The token the ending iterator is on will not be changed.
+		 */
+		public void SetCommentParsingTypeBetween (TokenIterator end, CommentParsingType type)
+			{
+			Tokenizer.SetCommentParsingTypeBetween(this, end, type);
+			}
+
+
 		/* Function: SetSyntaxHighlightingTypeByCharacters
 		 * 
 		 * Changes the <SyntaxHighlightingType> of the tokens encompassed by the passed number of characters.
@@ -534,6 +601,16 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 			}
 
 			
+		/* Function: SetSyntaxHighlightingTypeBetween
+		 * Changes the <SyntaxHighlightingType> of all the tokens between the current position and the passed iterator.
+		 * The token the ending iterator is on will not be changed.
+		 */
+		public void SetSyntaxHighlightingTypeBetween (TokenIterator end, SyntaxHighlightingType type)
+			{
+			Tokenizer.SetSyntaxHighlightingTypeBetween(this, end, type);
+			}
+
+
 		/* Function: SetPrototypeParsingTypeByCharacters
 		 * 
 		 * Changes the <PrototypeParsingType> of the tokens encompassed by the passed number of characters.
@@ -564,6 +641,16 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 			}
 
 			
+		/* Function: SetPrototypeParsingTypeBetween
+		 * Changes the <PrototypeParsingType> of all the tokens between the current position and the passed iterator.
+		 * The token the ending iterator is on will not be changed.
+		 */
+		public void SetPrototypeParsingTypeBetween (TokenIterator end, PrototypeParsingType type)
+			{
+			Tokenizer.SetPrototypeParsingTypeBetween(this, end, type);
+			}
+
+
 		/* Function: SetClassPrototypeParsingTypeByCharacters
 		 * 
 		 * Changes the <ClassPrototypeParsingType> of the tokens encompassed by the passed number of characters.
@@ -591,6 +678,16 @@ namespace CodeClear.NaturalDocs.Engine.Tokenization
 					tokenCount--;
 					}
 				}
+			}
+
+
+		/* Function: SetClassPrototypeParsingTypeBetween
+		 * Changes the <ClassPrototypeParsingType> of all the tokens between the current position and the passed iterator.
+		 * The token the ending iterator is on will not be changed.
+		 */
+		public void SetClassPrototypeParsingTypeBetween (TokenIterator end, ClassPrototypeParsingType type)
+			{
+			Tokenizer.SetClassPrototypeParsingTypeBetween(this, end, type);
 			}
 
 			

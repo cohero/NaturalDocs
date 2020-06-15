@@ -15,7 +15,7 @@
  *		
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -218,10 +218,15 @@ namespace CodeClear.NaturalDocs.Engine.Tests.Framework
 		 */
 		public void Run ()
 			{
-			EngineInstance.Files.WorkOnAddingAllFiles(Engine.Delegates.NeverCancel);
-			EngineInstance.Files.DeleteFilesNotInFileSources(Engine.Delegates.NeverCancel);
-							
-			EngineInstance.FileProcessor.WorkOnProcessingChanges(Engine.Delegates.NeverCancel);
+			var adder = EngineInstance.Files.CreateAdderProcess();
+			adder.WorkOnAddingAllFiles(Engine.Delegates.NeverCancel);
+			adder.Dispose();
+
+			EngineInstance.Files.DeleteFilesNotReAdded(Engine.Delegates.NeverCancel);
+			
+			var changeProcessor = EngineInstance.Files.CreateChangeProcessor();
+			changeProcessor.WorkOnProcessingChanges(Engine.Delegates.NeverCancel);
+			changeProcessor.Dispose();
 
 			EngineInstance.Output.WorkOnUpdatingOutput(Engine.Delegates.NeverCancel);
 			EngineInstance.Output.WorkOnFinalizingOutput(Engine.Delegates.NeverCancel);

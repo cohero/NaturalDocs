@@ -5,7 +5,7 @@
  * A class to monitor the file parsing stage.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -22,39 +22,38 @@ namespace CodeClear.NaturalDocs.CLI.StatusManagers
 		// __________________________________________________________________________
 
 		
-		public Parsing (string alternateStartMessage) : base (Application.StatusInterval)
+		public Parsing (Engine.Files.ChangeProcessor process, string alternativeStartMessage = null) : base (Application.StatusInterval)
 			{
-			status = new Engine.Files.ProcessChangesStatus();
+			this.process = process;
+			status = new Engine.Files.ChangeProcessorStatus();
+
 			totalFilesToProcess = 0;
 			lastPercentage = 0;
-			this.alternateStartMessage = alternateStartMessage;
+			this.alternativeStartMessage = alternativeStartMessage;
 			}
 
 		protected override void ShowStartMessage ()
 			{
-			Application.EngineInstance.FileProcessor.GetProcessChangesStatus(ref status);
+			process.GetStatus(ref status);
 			totalFilesToProcess = status.ChangedFilesRemaining + status.DeletedFilesRemaining;
 			
-			if (alternateStartMessage != null)
+			if (alternativeStartMessage != null)
 				{
 				System.Console.WriteLine(
-					Engine.Locale.Get("NaturalDocs.CLI", alternateStartMessage)
+					Engine.Locale.Get("NaturalDocs.CLI", alternativeStartMessage)
+					);
+				}
+			else if (status.ChangedFilesRemaining == 0 && status.DeletedFilesRemaining == 0)
+				{
+				System.Console.WriteLine(
+					Engine.Locale.Get("NaturalDocs.CLI", "Status.NoChanges")
 					);
 				}
 			else if (status.ChangedFilesRemaining == 0)
-				{			
-				if (status.DeletedFilesRemaining == 0)
-					{
-					System.Console.WriteLine(
-						Engine.Locale.Get("NaturalDocs.CLI", "Status.NoChanges")
-						);
-					}
-				else
-					{
-					System.Console.WriteLine(
-						Engine.Locale.Get("NaturalDocs.CLI", "Status.StartFileParsing(deleted)", status.DeletedFilesRemaining)
-						);
-					}
+				{
+				System.Console.WriteLine(
+					Engine.Locale.Get("NaturalDocs.CLI", "Status.StartFileParsing(deleted)", status.DeletedFilesRemaining)
+					);
 				}
 			else if (status.DeletedFilesRemaining == 0)
 				{
@@ -76,7 +75,7 @@ namespace CodeClear.NaturalDocs.CLI.StatusManagers
 			if (totalFilesToProcess == 0)
 				{  return;  }
 				
-			Application.EngineInstance.FileProcessor.GetProcessChangesStatus(ref status);
+			process.GetStatus(ref status);
 			
 			int completed = totalFilesToProcess - status.ChangedFilesRemaining - status.DeletedFilesRemaining - status.FilesBeingProcessed;
 			int newPercentage = (completed * 100) / totalFilesToProcess;
@@ -105,10 +104,12 @@ namespace CodeClear.NaturalDocs.CLI.StatusManagers
 		// Group: Variables
 		// __________________________________________________________________________
 		
-		protected Engine.Files.ProcessChangesStatus status;
+		protected Engine.Files.ChangeProcessor process;
+		protected Engine.Files.ChangeProcessorStatus status;
+
 		protected int totalFilesToProcess;
 		protected int lastPercentage;
-		protected string alternateStartMessage;
+		protected string alternativeStartMessage;
 		
 		}
 	}

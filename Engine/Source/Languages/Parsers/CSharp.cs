@@ -6,7 +6,7 @@
  * 
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -14,6 +14,7 @@
 using System;
 using System.Collections.Generic;
 using CodeClear.NaturalDocs.Engine.Collections;
+using CodeClear.NaturalDocs.Engine.Prototypes;
 using CodeClear.NaturalDocs.Engine.Symbols;
 using CodeClear.NaturalDocs.Engine.Tokenization;
 using CodeClear.NaturalDocs.Engine.Topics;
@@ -21,7 +22,6 @@ using CodeClear.NaturalDocs.Engine.Topics;
 
 namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 	{
-//	[test][your-mom]
 	public class CSharp : Language
 		{
 
@@ -67,7 +67,6 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 			{
 			Tokenizer tokenizedPrototype = new Tokenizer(stringPrototype, tabWidth: EngineInstance.Config.TabWidth);
 			TokenIterator startOfPrototype = tokenizedPrototype.FirstToken;
-			ParsedPrototype parsedPrototype = new ParsedPrototype(tokenizedPrototype);
 			bool parsed = false;
 
 			if (commentTypeID == EngineInstance.CommentTypes.IDFromKeyword("function") ||
@@ -117,7 +116,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 			    }
 
 			if (parsed)
-				{  return parsedPrototype;  }
+				{  return new ParsedPrototype(tokenizedPrototype);  }
 			else
 			    {  return base.ParsePrototype(stringPrototype, commentTypeID);  }
 			}
@@ -600,7 +599,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			if (mode == ParseMode.ParseClassPrototype && 
 				endOfModifiers > startOfModifiers)
-				{  iterator.Tokenizer.SetClassPrototypeParsingTypeBetween(startOfModifiers, endOfModifiers, ClassPrototypeParsingType.Modifier);  }
+				{  startOfModifiers.SetClassPrototypeParsingTypeBetween(endOfModifiers, ClassPrototypeParsingType.Modifier);  }
 
 
 			// Keyword
@@ -716,7 +715,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					classTopic.Title = symbol.FormatWithSeparator('.');  // so the title is fully resolved
 					classTopic.Symbol = symbol;
 					classTopic.ClassString = classString;
-					classTopic.Prototype = NormalizePrototype( iterator.Tokenizer.TextBetween(iterator, lookahead) );
+					classTopic.Prototype = NormalizePrototype( iterator.TextBetween(lookahead) );
 					classTopic.CommentTypeID = commentTypeID;
 					classTopic.LanguageID = this.ID;
 					classTopic.DeclaredAccessLevel = accessLevel;
@@ -792,7 +791,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			// Attributes
 			
-			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.PrePrototypeLine))
+			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.StartOfPrototypeSection))
 				{  TryToSkipWhitespace(ref lookahead);  }
 
 
@@ -878,7 +877,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					}
 
 				if (mode == ParseMode.ParsePrototype)
-					{  iterator.Tokenizer.SetPrototypeParsingTypeBetween(startOfOperator, lookahead, PrototypeParsingType.Name);  }
+					{  startOfOperator.SetPrototypeParsingTypeBetween(lookahead, PrototypeParsingType.Name);  }
 
 				TryToSkipWhitespace(ref lookahead);
 				}
@@ -944,7 +943,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					Topic functionTopic = new Topic(EngineInstance.CommentTypes);
 					functionTopic.Title = name;
 					functionTopic.Symbol = scope + SymbolString.FromPlainText_NoParameters(name);
-					functionTopic.Prototype = NormalizePrototype( iterator.Tokenizer.TextBetween(iterator, lookahead) );
+					functionTopic.Prototype = NormalizePrototype( iterator.TextBetween(lookahead) );
 					functionTopic.CommentTypeID = commentTypeID;
 					functionTopic.LanguageID = this.ID;
 					functionTopic.DeclaredAccessLevel = accessLevel;
@@ -1009,7 +1008,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			// Attributes
 			
-			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.PrePrototypeLine))
+			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.StartOfPrototypeSection))
 				{  TryToSkipWhitespace(ref lookahead);  }
 
 
@@ -1142,7 +1141,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					Topic functionTopic = new Topic(EngineInstance.CommentTypes);
 					functionTopic.Title = name;
 					functionTopic.Symbol = scope + SymbolString.FromPlainText_NoParameters(name);
-					functionTopic.Prototype = NormalizePrototype( iterator.Tokenizer.TextBetween(iterator, endOfPrototype) );
+					functionTopic.Prototype = NormalizePrototype( iterator.TextBetween(endOfPrototype) );
 					functionTopic.CommentTypeID = commentTypeID;
 					functionTopic.LanguageID = this.ID;
 					functionTopic.DeclaredAccessLevel = accessLevel;
@@ -1201,7 +1200,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			// Attributes
 			
-			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.PrePrototypeLine))
+			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.StartOfPrototypeSection))
 				{  TryToSkipWhitespace(ref lookahead);  }
 
 
@@ -1251,10 +1250,10 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 				return false;  
 				}
 
-			iterator.Tokenizer.AppendTextBetweenTo(startOfType, lookahead, name);
+			startOfType.AppendTextBetweenTo(lookahead, name);
 
 			if (mode == ParseMode.ParsePrototype)
-				{  iterator.Tokenizer.SetPrototypeParsingTypeBetween(startOfType, lookahead, PrototypeParsingType.Name);  }
+				{  startOfType.SetPrototypeParsingTypeBetween(lookahead, PrototypeParsingType.Name);  }
 
 			TryToSkipWhitespace(ref lookahead);
 
@@ -1305,7 +1304,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					Topic operatorTopic = new Topic(EngineInstance.CommentTypes);
 					operatorTopic.Title = name.ToString();
 					operatorTopic.Symbol = scope + SymbolString.FromPlainText_NoParameters(operatorTopic.Title);
-					operatorTopic.Prototype = NormalizePrototype( iterator.Tokenizer.TextBetween(iterator, lookahead) );
+					operatorTopic.Prototype = NormalizePrototype( iterator.TextBetween(lookahead) );
 					operatorTopic.CommentTypeID = commentTypeID;
 					operatorTopic.LanguageID = this.ID;
 					operatorTopic.DeclaredAccessLevel = accessLevel;
@@ -1366,7 +1365,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			// Attributes
 			
-			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.PrePrototypeLine))
+			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.StartOfPrototypeSection))
 				{  TryToSkipWhitespace(ref lookahead);  }
 
 
@@ -1448,7 +1447,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 				Topic variableTopic = new Topic(EngineInstance.CommentTypes);
 				variableTopic.Title = name;
 				variableTopic.Symbol = scope + SymbolString.FromPlainText_NoParameters(name);
-				variableTopic.Prototype = NormalizePrototype( iterator.Tokenizer.TextBetween(iterator, lookahead) );
+				variableTopic.Prototype = NormalizePrototype( iterator.TextBetween(lookahead) );
 				variableTopic.CommentTypeID = commentTypeID;
 				variableTopic.LanguageID = this.ID;
 				variableTopic.DeclaredAccessLevel = accessLevel;
@@ -1479,7 +1478,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 						{  GenericSkip(ref lookahead);  }
 
 					if (mode == ParseMode.ParsePrototype)
-						{  iterator.Tokenizer.SetPrototypeParsingTypeBetween(startOfDefaultValue, lookahead, PrototypeParsingType.DefaultValue);  }
+						{  startOfDefaultValue.SetPrototypeParsingTypeBetween(lookahead, PrototypeParsingType.DefaultValue);  }
 					}
 				else if (lookahead.Character == ',')
 					{
@@ -1505,7 +1504,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 						Topic newVariableTopic = new Topic(EngineInstance.CommentTypes);
 						newVariableTopic.Title = newName;
 						newVariableTopic.Symbol = scope + SymbolString.FromPlainText_NoParameters(newName);
-						newVariableTopic.Prototype = NormalizePrototype( iterator.Tokenizer.TextBetween(iterator, endOfType) + " " + newName );
+						newVariableTopic.Prototype = NormalizePrototype( iterator.TextBetween(endOfType) + " " + newName );
 						newVariableTopic.CommentTypeID = commentTypeID;
 						newVariableTopic.LanguageID = this.ID;
 						newVariableTopic.DeclaredAccessLevel = accessLevel;
@@ -1559,7 +1558,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			// Attributes
 			
-			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.PrePrototypeLine))
+			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.StartOfPrototypeSection))
 				{  TryToSkipWhitespace(ref lookahead);  }
 
 
@@ -1667,7 +1666,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 				{
 				System.Text.StringBuilder prototype = new System.Text.StringBuilder();
 
-				iterator.Tokenizer.AppendTextBetweenTo(iterator, lookahead, prototype);
+				iterator.AppendTextBetweenTo(lookahead, prototype);
 				prototype.Append(" { ");
 
 				if (lookahead.Character == '{')
@@ -1704,7 +1703,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 						else
 							{  firstAccessor = false;  }
 
-						iterator.Tokenizer.AppendTextBetweenTo(startOfAccessor, lookahead, prototype);
+						startOfAccessor.AppendTextBetweenTo(lookahead, prototype);
 
 						TryToSkipWhitespace(ref lookahead);
 
@@ -1815,7 +1814,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			// Attributes
 			
-			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.PrePrototypeLine))
+			if (TryToSkipAttributes(ref lookahead, AttributeTarget.LocalOnly, mode, PrototypeParsingType.StartOfPrototypeSection))
 				{  TryToSkipWhitespace(ref lookahead);  }
 
 
@@ -1895,7 +1894,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					Topic enumTopic = new Topic(EngineInstance.CommentTypes);
 					enumTopic.Title = name;
 					enumTopic.Symbol = symbol;
-					enumTopic.Prototype = NormalizePrototype( iterator.Tokenizer.TextBetween(iterator, lookahead) );
+					enumTopic.Prototype = NormalizePrototype( iterator.TextBetween(lookahead) );
 					enumTopic.CommentTypeID = commentTypeID;
 					enumTopic.LanguageID = this.ID;
 					enumTopic.DeclaredAccessLevel = accessLevel;
@@ -2046,7 +2045,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					{  GenericSkip(ref lookahead);  }
 
 				if (mode == ParseMode.ParsePrototype)
-					{  iterator.Tokenizer.SetPrototypeParsingTypeBetween(startOfDefaultValue, lookahead, PrototypeParsingType.DefaultValue);  }
+					{  startOfDefaultValue.SetPrototypeParsingTypeBetween(lookahead, PrototypeParsingType.DefaultValue);  }
 				}
 
 			if (lookahead.Character == ',' || 
@@ -2087,7 +2086,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 			if (lookahead.Character == '?')
 				{
 				if (mode == ParseMode.ParsePrototype)
-					{  lookahead.PrototypeParsingType = PrototypeParsingType.TypeSuffix;  }
+					{  lookahead.PrototypeParsingType = PrototypeParsingType.TypeModifier;  }
 
 				lookahead.Next();
 				iterator = lookahead;
@@ -2103,7 +2102,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 			if (lookahead.Character == '*')
 				{
 				if (mode == ParseMode.ParsePrototype)
-					{  lookahead.PrototypeParsingType = PrototypeParsingType.TypeSuffix;  }
+					{  lookahead.PrototypeParsingType = PrototypeParsingType.TypeModifier;  }
 
 				lookahead.Next();
 				iterator = lookahead;
@@ -2113,7 +2112,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 			while (lookahead.Character == '[')
 				{
 				if (mode == ParseMode.ParsePrototype)
-					{  lookahead.PrototypeParsingType = PrototypeParsingType.OpeningTypeSuffix;  }
+					{  lookahead.PrototypeParsingType = PrototypeParsingType.OpeningTypeModifier;  }
 
 				lookahead.Next();
 				TryToSkipWhitespace(ref lookahead);
@@ -2127,7 +2126,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 				if (lookahead.Character == ']')
 					{
 					if (mode == ParseMode.ParsePrototype)
-						{  lookahead.PrototypeParsingType = PrototypeParsingType.ClosingTypeSuffix;  }
+						{  lookahead.PrototypeParsingType = PrototypeParsingType.ClosingTypeModifier;  }
 
 					lookahead.Next();
 					iterator = lookahead;
@@ -2169,7 +2168,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			if (TryToSkipIdentifier(ref iterator, mode, prototypeParsingType))
 				{  
-				identifier = iterator.Tokenizer.TextBetween(start, iterator);
+				identifier = start.TextBetween(iterator);
 				return true;
 				}
 			else
@@ -2232,15 +2231,15 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 				if (prototypeParsingType == PrototypeParsingType.Type)
 					{
 					if (endOfQualifier > iterator)
-						{  iterator.Tokenizer.SetPrototypeParsingTypeBetween(iterator, endOfQualifier, PrototypeParsingType.TypeQualifier);  }
+						{  iterator.SetPrototypeParsingTypeBetween(endOfQualifier, PrototypeParsingType.TypeQualifier);  }
 
-					iterator.Tokenizer.SetPrototypeParsingTypeBetween(endOfQualifier, endOfIdentifier, PrototypeParsingType.Type);
+					endOfQualifier.SetPrototypeParsingTypeBetween(endOfIdentifier, PrototypeParsingType.Type);
 					}
 				else
-					{  iterator.Tokenizer.SetPrototypeParsingTypeBetween(iterator, endOfIdentifier, prototypeParsingType);  }
+					{  iterator.SetPrototypeParsingTypeBetween(endOfIdentifier, prototypeParsingType);  }
 				}
 			else if (mode == ParseMode.ParseClassPrototype)
-				{  iterator.Tokenizer.SetClassPrototypeParsingTypeBetween(iterator, endOfIdentifier, ClassPrototypeParsingType.Name);  }
+				{  iterator.SetClassPrototypeParsingTypeBetween(endOfIdentifier, ClassPrototypeParsingType.Name);  }
 
 			iterator = endOfIdentifier;
 			return true;
@@ -2363,20 +2362,21 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					{
 					if (isType)
 						{  
-						iterator.PrototypeParsingType = PrototypeParsingType.OpeningTypeSuffix;
-						lookahead.PrototypeParsingType = PrototypeParsingType.ClosingTypeSuffix;  
+						iterator.PrototypeParsingType = PrototypeParsingType.OpeningTypeModifier;
+						lookahead.PrototypeParsingType = PrototypeParsingType.ClosingTypeModifier;  
 						lookahead.Next();
 						}
 					else
 						{  
+						iterator.PrototypeParsingType = PrototypeParsingType.OpeningParamModifier;
+						lookahead.PrototypeParsingType = PrototypeParsingType.ClosingParamModifier;
 						lookahead.Next();
-						lookahead.Tokenizer.SetPrototypeParsingTypeBetween(iterator, lookahead, PrototypeParsingType.NameSuffix_PartOfType);  
 						}
 					}
 				else if (mode == ParseMode.ParseClassPrototype)
 					{
 					lookahead.Next();
-					lookahead.Tokenizer.SetClassPrototypeParsingTypeBetween(iterator, lookahead, ClassPrototypeParsingType.TemplateSuffix);
+					iterator.SetClassPrototypeParsingTypeBetween(lookahead, ClassPrototypeParsingType.TemplateSuffix);
 					}
 				else
 					{  lookahead.Next();  }
@@ -2478,12 +2478,11 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 
 			if (mode == ParseMode.ParsePrototype)
 				{
-				iterator.Tokenizer.SetPrototypeParsingTypeBetween(iterator, endOfClause, PrototypeParsingType.PostPrototypeLine);
-				iterator.PrototypeParsingType = PrototypeParsingType.StartOfPostPrototypeLine;
+				iterator.PrototypeParsingType = PrototypeParsingType.StartOfPrototypeSection;
 				}
 			else if (mode == ParseMode.ParseClassPrototype)
 				{
-				iterator.Tokenizer.SetClassPrototypeParsingTypeBetween(iterator, endOfClause, ClassPrototypeParsingType.PostPrototypeLine);
+				iterator.SetClassPrototypeParsingTypeBetween(endOfClause, ClassPrototypeParsingType.PostPrototypeLine);
 				iterator.ClassPrototypeParsingType = ClassPrototypeParsingType.StartOfPostPrototypeLine;
 				}
 
@@ -2501,15 +2500,16 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 		 *		- <ParseMode.IterateOnly>
 		 *		- <ParseMode.SyntaxHighlight>
 		 *		- <ParseMode.ParsePrototype>
-		 *			- Set prototypeParsingType to the type you would like them to be marked as, such as <PrototypeParsingType.TypeModifier>.
-		 *			  If set to <PrototypeParsingType.PrePrototypeLine>, it will also mark the first one with <PrototypeParsingType.StartOfPrePrototypeLine>.
+		 *			- Set prototypeParsingType to the type you would like them to be marked as, such as <PrototypeParsingType.TypeModifier>,
+		 *			  <PrototypeParsingType.ParamModifier>, or <PrototypeParsingType.StartOfPrototypeSection>.  It will actually set the brackets
+		 *			  to the opening and closing types.
 		 *		- <ParseMode.ParseClassPrototype>
 		 *			- Will mark the first one with <ClassPrototypeParsingType.StartOfPrePrototypeLine> and the rest with <ClassPrototypeParsingType.PrePrototypeLine>.
 		 *		- Everything else is treated as <ParseMode.IterateOnly>.
 		 */
 		protected bool TryToSkipAttributes (ref TokenIterator iterator, AttributeTarget type = AttributeTarget.Any, 
-																			 ParseMode mode = ParseMode.IterateOnly,
-																			 PrototypeParsingType prototypeParsingType = PrototypeParsingType.TypeModifier)
+														   ParseMode mode = ParseMode.IterateOnly,
+														   PrototypeParsingType prototypeParsingType = PrototypeParsingType.TypeModifier)
 			{
 			if (TryToSkipAttribute(ref iterator, type, mode, prototypeParsingType) == false)
 				{  return false;  }
@@ -2539,15 +2539,16 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 		 *		- <ParseMode.IterateOnly>
 		 *		- <ParseMode.SyntaxHighlight>
 		 *		- <ParseMode.ParsePrototype>
-		 *			- Set prototypeParsingType to the type you would like them to be marked as, such as <PrototypeParsingType.TypeModifier>.
-		 *			  If set to <PrototypeParsingType.PrePrototypeLine>, it will also mark the first one with <PrototypeParsingType.StartOfPrePrototypeLine>.
+		 *			- Set prototypeParsingType to the type you would like them to be marked as, such as <PrototypeParsingType.TypeModifier>,
+		 *			  <PrototypeParsingType.ParamModifier>, or <PrototypeParsingType.StartOfPrototypeSection>.  It will actually set the brackets
+		 *			  to the opening and closing types.
 		 *		- <ParseMode.ParseClassPrototype>
 		 *			- Will mark the first one with <ClassPrototypeParsingType.StartOfPrePrototypeLine> and the rest with <ClassPrototypeParsingType.PrePrototypeLine>.
 		 *		- Everything else is treated as <ParseMode.IterateOnly>.
 		 */
 		protected bool TryToSkipAttribute (ref TokenIterator iterator, AttributeTarget type = AttributeTarget.Any, 
-																			ParseMode mode = ParseMode.IterateOnly, 
-																			PrototypeParsingType prototypeParsingType = PrototypeParsingType.TypeModifier)
+														 ParseMode mode = ParseMode.IterateOnly, 
+														 PrototypeParsingType prototypeParsingType = PrototypeParsingType.TypeModifier)
 			{
 			if (iterator.Character != '[')
 				{  return false;  }
@@ -2576,17 +2577,48 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 			GenericSkipUntilAfter(ref iterator, ']');
 
 			if (mode == ParseMode.SyntaxHighlight)
-				{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfAttribute, iterator, SyntaxHighlightingType.Metadata);  }
+				{  startOfAttribute.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.Metadata);  }
 			else if (mode == ParseMode.ParsePrototype)
 				{  
-				iterator.Tokenizer.SetPrototypeParsingTypeBetween(startOfAttribute, iterator, prototypeParsingType);  
+				if (prototypeParsingType == PrototypeParsingType.StartOfPrototypeSection ||
+					prototypeParsingType == PrototypeParsingType.TypeModifier ||
+					prototypeParsingType == PrototypeParsingType.OpeningTypeModifier ||
+					prototypeParsingType == PrototypeParsingType.ParamModifier ||
+					prototypeParsingType == PrototypeParsingType.OpeningParamModifier)
+					{  
+					PrototypeParsingType openingType, closingType;
 
-				if (prototypeParsingType == PrototypeParsingType.PrePrototypeLine)
-					{  startOfAttribute.PrototypeParsingType = PrototypeParsingType.StartOfPrePrototypeLine;  }
+					if (prototypeParsingType == PrototypeParsingType.StartOfPrototypeSection)
+						{
+						openingType = PrototypeParsingType.StartOfPrototypeSection;
+						closingType = PrototypeParsingType.EndOfPrototypeSection;
+						}
+					else if (prototypeParsingType == PrototypeParsingType.TypeModifier ||
+							   prototypeParsingType == PrototypeParsingType.OpeningTypeModifier)
+						{
+						openingType = PrototypeParsingType.OpeningTypeModifier;
+						closingType = PrototypeParsingType.ClosingTypeModifier;
+						}
+					else // ParamModifier, OpeningParamModifier
+						{
+						openingType = PrototypeParsingType.OpeningParamModifier;
+						closingType = PrototypeParsingType.ClosingParamModifier;
+						}
+
+					startOfAttribute.PrototypeParsingType = openingType;
+
+					TokenIterator lookbehind = iterator;
+					lookbehind.Previous();
+
+					if (lookbehind.Character == ']')
+						{  lookbehind.PrototypeParsingType = closingType;  }
+					}
+				else
+					{  startOfAttribute.SetPrototypeParsingTypeBetween(iterator, prototypeParsingType);  }
 				}
 			else if (mode == ParseMode.ParseClassPrototype)
 				{  
-				iterator.Tokenizer.SetClassPrototypeParsingTypeBetween(startOfAttribute, iterator, ClassPrototypeParsingType.PrePrototypeLine);  
+				startOfAttribute.SetClassPrototypeParsingTypeBetween(iterator, ClassPrototypeParsingType.PrePrototypeLine);  
 				startOfAttribute.ClassPrototypeParsingType = ClassPrototypeParsingType.StartOfPrePrototypeLine;
 				}
 
@@ -2802,7 +2834,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					 iterator.MatchesAcrossTokens("//") == false);
 
 			if (mode == ParseMode.SyntaxHighlight)
-				{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfDirective, iterator, SyntaxHighlightingType.PreprocessingDirective);  }
+				{  startOfDirective.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.PreprocessingDirective);  }
 			
 			return true;
 			}
@@ -2874,7 +2906,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					{  iterator.Next();  }
 
 				if (mode == ParseMode.SyntaxHighlight)
-					{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfComment, iterator, SyntaxHighlightingType.Comment);  }
+					{  startOfComment.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.Comment);  }
 
 				return true;
 				}
@@ -2906,7 +2938,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					{  iterator.NextByCharacters(2);  }
 
 				if (mode == ParseMode.SyntaxHighlight)
-					{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfComment, iterator, SyntaxHighlightingType.Comment);  }
+					{  startOfComment.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.Comment);  }
 
 				return true;
 				}
@@ -2925,7 +2957,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 		 *		- <ParseMode.SyntaxHighlight>
 		 *		- Everything else is treated as <ParseMode.IterateOnly>.
 		 */
-		new protected bool TryToSkipString (ref TokenIterator iterator, ParseMode mode = ParseMode.IterateOnly)
+		override protected bool TryToSkipString (ref TokenIterator iterator, ParseMode mode = ParseMode.IterateOnly)
 			{
 			if (iterator.Character == '\"' || iterator.Character == '\'')
 				{
@@ -2953,7 +2985,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					}
 
 				if (mode == ParseMode.SyntaxHighlight)
-					{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfString, iterator, SyntaxHighlightingType.String);  }
+					{  startOfString.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.String);  }
 
 				return true;
 				}
@@ -2977,7 +3009,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					}
 
 				if (mode == ParseMode.SyntaxHighlight)
-					{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfString, iterator, SyntaxHighlightingType.String);  }
+					{  startOfString.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.String);  }
 
 				return true;
 				}

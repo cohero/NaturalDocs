@@ -40,16 +40,15 @@
  *		- <SearchIndex.Manager> is next because it also needs to be added as a <CodeDB.Manager> watcher.
  *		
  *		- <Output.Manager> is next because <Output.Builders> may need to be added as <Files.Manager>, <CodeDB.Manager>, and 
- *		  <SearchIndex.Manager> watchers.  They can also set the rebuild/reparse flags that CodeDB needs to interpret.
+ *		  <SearchIndex.Manager> watchers.  They can also set the rebuild/reparse flags that CodeDB needs to interpret.  Also, it adds
+ *		  a FileSource to <Files.Manager> for dealing with style files.
  *		   
  *		- <CodeDB.Manager> needs to be almost last so it can handle anything that can set <Config.Manager.ReparseEverything>
  *		   to true, though it only needs <Config.Manager>.
  *		   
- *		- <Files.Processor> in next because it needs to be added as a <Files.Manager> watcher.
- *		
- *		- <Files.Manager> is last because it must be after anything that can set <Config.Manager.ReparseEverything> to true.
+ *		- <Files.Manager> is almost last because it must be after anything that can set <Config.Manager.ReparseEverything> to true.
  *		   It also depends on <Languages.Manager> to know whether a file's extension is for a supported language or not.
- *		  
+ *		
  * 
  * File: GracefulExit.nd
  * 
@@ -58,7 +57,7 @@
  *		crash or exception.  This automatically causes <Config.Manager.RebuildEverything> to be set the next time it starts.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -89,7 +88,7 @@ namespace CodeClear.NaturalDocs.Engine
 								Languages.Manager languagesManager = null, Comments.Manager commentsManager = null, 
 								Links.Manager linksManager = null, CodeDB.Manager codeDBManager = null, 
 								Output.Manager outputManager = null, SearchIndex.Manager searchIndexManager = null, 
-								Files.Manager filesManager = null, Files.Processor fileProcessor = null)
+								Files.Manager filesManager = null)
 			{
 			startupWatchers = new List<IStartupWatcher>();
 
@@ -102,7 +101,6 @@ namespace CodeClear.NaturalDocs.Engine
 			this.output = outputManager ?? new Output.Manager(this);
 			this.searchIndex = searchIndexManager ?? new SearchIndex.Manager(this);
 			this.files = filesManager ?? new Files.Manager(this);
-			this.fileProcessor = fileProcessor ?? new Files.Processor(this);
 			}
 			
 
@@ -148,12 +146,6 @@ namespace CodeClear.NaturalDocs.Engine
 				output = null;
 				}
 
-			if (fileProcessor != null && !strictRulesApply)
-				{
-				fileProcessor.Dispose();
-				fileProcessor = null;
-				}
-				
 			if (codeDB != null && !strictRulesApply)
 				{
 				codeDB.Dispose();
@@ -238,7 +230,6 @@ namespace CodeClear.NaturalDocs.Engine
 				searchIndex.Start(errors) &&
 				output.Start(errors) &&
 				codeDB.Start(errors) &&
-				fileProcessor.Start(errors) &&
 				files.Start(errors)
 				);
 			}
@@ -279,7 +270,21 @@ namespace CodeClear.NaturalDocs.Engine
 		public string GetCrashInformation (Exception exception)
 			{
 			StringBuilder output = new StringBuilder();
-			
+
+
+			// Gather platform information
+
+			string dotNETVersion = null;
+			string monoVersion = null;
+			string osNameAndVersion = null;
+			string sqliteVersion = null;
+
+			try { dotNETVersion = Engine.SystemInfo.dotNETVersion; } catch {  }
+			try { monoVersion = Engine.SystemInfo.MonoVersion; } catch {  }
+			try { osNameAndVersion = Engine.SystemInfo.OSNameAndVersion; } catch {  }
+			try { sqliteVersion = Engine.SystemInfo.SQLiteVersion; } catch {  }
+
+
 			try
 				{
 
@@ -302,6 +307,18 @@ namespace CodeClear.NaturalDocs.Engine
 				else
 					{
 					output.AppendLine( "   (" + exception.GetType() + ")" );
+					}
+
+
+				// Outdated Mono version
+
+				if (SystemInfo.MonoVersionTooOld)
+					{
+					output.AppendLine();
+					output.AppendLine( Locale.SafeGet("NaturalDocs.Engine", "CrashReport.OutdatedMono", 
+													"You appear to be using a very outdated version of Mono.  This has been known to cause Natural Docs to crash.  Please update it to a more recent version.") );
+					output.AppendLine();
+					output.AppendLine("   Mono " + monoVersion);
 					}
 
 
@@ -415,33 +432,30 @@ namespace CodeClear.NaturalDocs.Engine
 				output.AppendLine ( "   Natural Docs " + Instance.VersionString );
 				output.AppendLine ();
 
-				// .NET/Mono version.  Extra try block in case it crashes out.
-				try 
-					{  
-					Type type = Type.GetType("Mono.Runtime");
+				if (osNameAndVersion != null)
+					{  output.AppendLine( "   " + osNameAndVersion);  }
+				else
+					{  output.AppendLine( "   Couldn't get OS name and version");  }
 
-					if (type != null)
-						{
-						var getDisplayNameMethod = type.GetMethod("GetDisplayName", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-
-						if (getDisplayNameMethod != null)
-							{  output.AppendLine( "   Mono " + getDisplayNameMethod.Invoke(null, null));  }
-						else
-							{  output.AppendLine( "   Couldn't get Mono version");  }
-						}
+				// There's a possibility of Natural Docs being run through Mono on Windows
+				if (Engine.SystemInfo.OnUnix || monoVersion != null)
+					{
+					if (monoVersion != null)
+						{  output.AppendLine( "   Mono " + monoVersion);  }
 					else
-						{  output.AppendLine( "   .NET " + System.Diagnostics.FileVersionInfo.GetVersionInfo(typeof(int).Assembly.Location).ProductVersion);  }
+						{  output.AppendLine( "   Couldn't get Mono version");  }
 					}
-				catch
-					{  output.AppendLine ( "   Couldn't get .NET/Mono version" );  }
+				else
+					{  
+					if (dotNETVersion != null)
+						{  output.AppendLine("   .NET " + dotNETVersion);  }
+					else
+						{  output.AppendLine("   Couldn't get .NET version");  }
+					}
 
-				output.AppendLine ( "   " + Environment.OSVersion.VersionString + " (" + Environment.OSVersion.Platform + ")" );
-				output.AppendLine ();
-
-				// SQLite version.  Extra try block in case it crashes out.
-				try 
-					{  output.AppendLine ( "   SQLite " + SQLite.API.LibVersion() );  }
-				catch
+				if (sqliteVersion != null)
+					{  output.AppendLine( "   SQLite " + sqliteVersion);  }
+				else
 					{  output.AppendLine ( "   Couldn't get SQLite version" );  }
 				}
 				
@@ -536,7 +550,7 @@ namespace CodeClear.NaturalDocs.Engine
 		/* Constant: VersionString
 		 * The current version of the Natural Docs engine as a string.
 		 */
-		public const string VersionString = "2.0.2";
+		public const string VersionString = "2.1 (Development Release 2)";
 		
 		
 		/* Property: Version
@@ -624,15 +638,6 @@ namespace CodeClear.NaturalDocs.Engine
 				{  return output;  }
 			}
 
-		/* Property: FileProcessor
-		 * Returns the <Files.Processor> associated with this instance.
-		 */
-		public Files.Processor FileProcessor
-			{
-			get
-				{  return fileProcessor;  }
-			}
-			
 		/* Property: Files
 		 * Returns the <Files.Manager> associated with this instance.
 		 */
@@ -641,7 +646,6 @@ namespace CodeClear.NaturalDocs.Engine
 			get
 				{  return files;  }
 			}
-			
 			
 			
 			
@@ -670,8 +674,6 @@ namespace CodeClear.NaturalDocs.Engine
 		protected Output.Manager output;
 			
 		protected Files.Manager files;
-
-		protected Files.Processor fileProcessor;
 
 		}
 	}

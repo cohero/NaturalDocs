@@ -21,7 +21,7 @@
  *		
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -61,10 +61,11 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 				// This will create multiple subdirectories if needed, and will not throw an exception if it already exists.
 				System.IO.Directory.CreateDirectory(HTMLBuilder.Menu_DataFolder);  
 				}
-			catch
+			catch (Exception e)
 				{
 				throw new Exceptions.UserFriendly( 
-					Locale.Get("NaturalDocs.Engine", "Error.CouldNotCreateOutputFolder(name)", HTMLBuilder.Menu_DataFolder) 
+					Locale.Get("NaturalDocs.Engine", "Error.CouldNotCreateOutputFolder(name, exception)", 
+									HTMLBuilder.Menu_DataFolder, e.Message) 
 					);
 				}
 

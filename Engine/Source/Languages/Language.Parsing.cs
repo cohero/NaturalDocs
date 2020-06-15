@@ -2,7 +2,7 @@
  * Class: CodeClear.NaturalDocs.Engine.Languages.Language
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -12,11 +12,12 @@ using System.Collections.Generic;
 using System.Text;
 using CodeClear.NaturalDocs.Engine.Collections;
 using CodeClear.NaturalDocs.Engine.Comments;
+using CodeClear.NaturalDocs.Engine.CommentTypes;
 using CodeClear.NaturalDocs.Engine.Links;
+using CodeClear.NaturalDocs.Engine.Prototypes;
 using CodeClear.NaturalDocs.Engine.Symbols;
 using CodeClear.NaturalDocs.Engine.Tokenization;
 using CodeClear.NaturalDocs.Engine.Topics;
-using CodeClear.NaturalDocs.Engine.CommentTypes;
 
 
 namespace CodeClear.NaturalDocs.Engine.Languages
@@ -405,7 +406,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				{  throw new Exceptions.BadContainerOperation("ParsePrototype");  }
 
 			Tokenizer tokenizedPrototype = new Tokenizer(stringPrototype, tabWidth: EngineInstance.Config.TabWidth);
-			ParsedPrototype parsedPrototype = new ParsedPrototype(tokenizedPrototype);
+			ParsedPrototype parsedPrototype;
 
 
 			// Search for the first opening bracket or brace.  Also be on the lookout for anything that would indicate this is a
@@ -452,7 +453,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 
 			// If we found brackets, it's either a function prototype or a class prototype that includes members.  
-			// Separate out the parameters/members.
+			// Mark the delimiters.
 
 			if (closingBracket != '\0')
 				{
@@ -484,12 +485,15 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					else
 						{  iterator.Next();  }
 					}
-				
 
-				// If we have any, parse the parameters.
 
-				// We use ParsedPrototype.GetParameter() instead of trying to build it into the loop above because ParsedPrototype 
-				// does things like trimming whitespace and ignoring empty parentheses.
+				// We have enough tokens marked to create the parsed prototype.  This will also let us iterate through the parameters
+				// easily.
+
+				parsedPrototype = new ParsedPrototype(tokenizedPrototype);
+
+
+				// If there are any parameters, mark the tokens in them.
 
 				TokenIterator start, end;
 
@@ -511,26 +515,30 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					}
 
 
-				// Mark the return value of functions.
+				// Mark the return value of functions.  First we'll check if there's a colon after the parameters to see if it's a
+				// Pascal-style function.
 
 				parsedPrototype.GetAfterParameters(out start, out end);
 
 				// Exclude the closing bracket
-				start.Next();
-				start.NextPastWhitespace(end);
+				if (start.PrototypeParsingType == PrototypeParsingType.EndOfParams)
+					{
+					start.Next();
+					start.NextPastWhitespace(end);
+					}
 
-				// If there's a colon immediately after the parameters, it's a Pascal-style function.  Mark the return value after it.
-				// We can't rely on parameterStyle since the prototype may not have parameters.
+				// If there's a colon immediately after the parameters, assume it's a Pascal-style function and mark the return 
+				// value after it.  We can't rely on parameterStyle since the prototype may not have parameters.
 				if (start < end && start.Character == ':')
 					{  
 					start.Next();
-					start.NextPastWhitespace();
+					start.NextPastWhitespace(end);
 
 					if (start < end)
 						{  MarkTypeAndModifiers(start, end);  }
 					}
 
-				// Otherwise it's a C-style function.  Mark the part before the parameters, which includes the name.
+				// Otherwise assume it's a C-style function.  Mark the part before the parameters, which includes the name.
 				else
 					{  
 					parsedPrototype.GetBeforeParameters(out start, out end);
@@ -549,8 +557,9 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 			else
 				{
-				TokenIterator start, end;
-				parsedPrototype.GetCompletePrototype(out start, out end);
+				parsedPrototype = new ParsedPrototype(tokenizedPrototype);
+				TokenIterator start = tokenizedPrototype.FirstToken;
+				TokenIterator end = tokenizedPrototype.LastToken;
 
 				var parameterStyle = DetectParameterStyle(start, end);
 
@@ -635,7 +644,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				startOfModifiers.NextPastWhitespace(endOfModifiers);
 
 				if (endOfModifiers > startOfModifiers)
-					{  tokenizedPrototype.SetClassPrototypeParsingTypeBetween(startOfModifiers, endOfModifiers, ClassPrototypeParsingType.Modifier);  }
+					{  startOfModifiers.SetClassPrototypeParsingTypeBetween(endOfModifiers, ClassPrototypeParsingType.Modifier);  }
 
 				// The iterator is on the keyword.  Move past it to the name.
 				iterator.Next();
@@ -694,7 +703,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					}
 
 				if (endOfModifiers > startOfModifiers)
-					{  tokenizedPrototype.SetClassPrototypeParsingTypeBetween(startOfModifiers, endOfModifiers, ClassPrototypeParsingType.Modifier);  }
+					{  startOfModifiers.SetClassPrototypeParsingTypeBetween(endOfModifiers, ClassPrototypeParsingType.Modifier);  }
 				}
 
 
@@ -719,21 +728,25 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			if (endOfName == startOfName)
 				{  return null;  }
 
-			tokenizedPrototype.SetClassPrototypeParsingTypeBetween(startOfName, endOfName, ClassPrototypeParsingType.Name);
+			startOfName.SetClassPrototypeParsingTypeBetween(endOfName, ClassPrototypeParsingType.Name);
 
 
 			// Iterator is past the name.  Get the template information if there is any.
 
 			iterator.NextPastWhitespace();
 
-			if (iterator.Character == '<')
+			if (iterator.Character == '<' || iterator.Character == '[' || iterator.Character == '(' ||
+				iterator.MatchesAcrossTokens("#("))  // SystemVerilog
 				{
 				TokenIterator startOfTemplate = iterator;
+
+				if (iterator.Character == '#')
+					{  iterator.Next();  }
 
 				if (TryToSkipBlock(ref iterator, true) == false)
 					{  return null;  }
 
-				tokenizedPrototype.SetClassPrototypeParsingTypeBetween(startOfTemplate, iterator, ClassPrototypeParsingType.TemplateSuffix);
+				startOfTemplate.SetClassPrototypeParsingTypeBetween(iterator, ClassPrototypeParsingType.TemplateSuffix);
 
 				iterator.NextPastWhitespace();
 				}
@@ -768,7 +781,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 				if (doubleToken)
 					{
-					tokenizedPrototype.SetClassPrototypeParsingTypeBetween(iterator, lookahead, ClassPrototypeParsingType.StartOfParents);
+					iterator.SetClassPrototypeParsingTypeBetween(lookahead, ClassPrototypeParsingType.StartOfParents);
 					iterator = lookahead;
 					}
 				else
@@ -816,7 +829,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 					if (doubleToken)
 						{
-						tokenizedPrototype.SetClassPrototypeParsingTypeBetween(iterator, lookahead, ClassPrototypeParsingType.ParentSeparator);
+						iterator.SetClassPrototypeParsingTypeBetween(lookahead, ClassPrototypeParsingType.ParentSeparator);
 						iterator = lookahead;
 						iterator.NextPastWhitespace();
 						}
@@ -893,13 +906,21 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 						iterator = endOfName;
 						iterator.NextPastWhitespace(endOfParent);
 
-						if (iterator.Character == '<' && iterator < endOfParent)
+						if (iterator < endOfParent)
 							{
-							TokenIterator lookahead = iterator;
-							if (TryToSkipBlock(ref lookahead, true) == true && lookahead <= endOfParent)
+							if (iterator.Character == '<' || iterator.Character == '[' || iterator.Character == '(' ||
+								iterator.MatchesAcrossTokens("#("))  // SystemVerilog
 								{
-								// We've reached template information so we can stop looking for the name.
-								break;
+								TokenIterator lookahead = iterator;
+
+								if (lookahead.Character == '#')
+									{  lookahead.Next();  }
+
+								if (TryToSkipBlock(ref lookahead, true) == true && lookahead <= endOfParent)
+									{
+									// We've reached template information so we can stop looking for the name.
+									break;
+									}
 								}
 							}
 						}
@@ -916,7 +937,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 				if (endOfName > startOfName)
 					{
-					tokenizedPrototype.SetClassPrototypeParsingTypeBetween(startOfName, endOfName, ClassPrototypeParsingType.Name);
+					startOfName.SetClassPrototypeParsingTypeBetween(endOfName, ClassPrototypeParsingType.Name);
 
 					TokenIterator startOfModifiers = startOfParent;
 					TokenIterator endOfModifiers = startOfName;
@@ -925,21 +946,28 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					startOfModifiers.NextPastWhitespace(endOfModifiers);
 
 					if (endOfModifiers > startOfModifiers)
-						{  tokenizedPrototype.SetClassPrototypeParsingTypeBetween(startOfModifiers, endOfModifiers, ClassPrototypeParsingType.Modifier);  }
+						{  startOfModifiers.SetClassPrototypeParsingTypeBetween(endOfModifiers, ClassPrototypeParsingType.Modifier);  }
 
 					TokenIterator startOfTemplate = endOfName;
 					startOfTemplate.NextPastWhitespace(endOfParent);
 
 					TokenIterator endOfTemplate = startOfTemplate;
-					if (startOfTemplate < endOfParent && startOfTemplate.Character == '<' && 
-						TryToSkipBlock(ref endOfTemplate, true) == true && endOfTemplate <= endOfParent)
+					if (endOfTemplate < endOfParent &&
+						(endOfTemplate.Character == '<' || endOfTemplate.Character == '[' || endOfTemplate.Character == '(' ||
+						 endOfTemplate.MatchesAcrossTokens("#(")) )  // SystemVerilog
 						{
-						tokenizedPrototype.SetClassPrototypeParsingTypeBetween(startOfTemplate, endOfTemplate, ClassPrototypeParsingType.TemplateSuffix);
-						}
-					else
-						{
-						// Reset in case TryToSkipBlock() worked but it went past the parent.  
-						endOfTemplate = startOfTemplate;  
+						if (endOfTemplate.Character == '#')
+							{  endOfTemplate.Next();  }
+
+						if (TryToSkipBlock(ref endOfTemplate, true) == true && endOfTemplate <= endOfParent)
+							{
+							startOfTemplate.SetClassPrototypeParsingTypeBetween(endOfTemplate, ClassPrototypeParsingType.TemplateSuffix);
+							}
+						else
+							{
+							// Reset in case TryToSkipBlock() worked but it went past the parent.  
+							endOfTemplate = startOfTemplate;  
+							}
 						}
 
 					// There may also be modifiers after the name.
@@ -950,7 +978,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					startOfModifiers.NextPastWhitespace(endOfModifiers);
 
 					if (endOfModifiers > startOfModifiers)
-						{  tokenizedPrototype.SetClassPrototypeParsingTypeBetween(startOfModifiers, endOfModifiers, ClassPrototypeParsingType.Modifier);  }
+						{  startOfModifiers.SetClassPrototypeParsingTypeBetween(endOfModifiers, ClassPrototypeParsingType.Modifier);  }
 					}
 				}
 
@@ -1040,7 +1068,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 		 */
 		public bool IsBuiltInType (TokenIterator start, TokenIterator end)
 			{
-			return IsBuiltInType( start.Tokenizer.TextBetween(start, end) );
+			return IsBuiltInType( start.TextBetween(end) );
 			}
 
 
@@ -1326,29 +1354,60 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				else
 					{  endCode = source.LastLine;  }
 
-				AddBasicPrototype(elements[elementIndex].Topic, startCode, endCode);
+				TokenIterator prototypeStart, prototypeEnd;
+				if (TryToFindBasicPrototype(elements[elementIndex].Topic, startCode, endCode, out prototypeStart, out prototypeEnd))
+					{
+					Tokenizer prototype = prototypeStart.Tokenizer.CreateFromIterators(prototypeStart, prototypeEnd);
+					elements[elementIndex].Topic.Prototype = NormalizePrototype(prototype);
+					}
 				}
 			}
 
 
-		/* Function: AddBasicPrototype
+		/* Function: TryToFindBasicPrototype
 		 * Attempts to find a prototype for the passed <Topic> between the iterators.  If one is found, it will be normalized and put in
 		 * <Topic.Prototoype>.
 		 */
-		protected virtual void AddBasicPrototype (Topic topic, LineIterator startCode, LineIterator endCode)
+		protected virtual bool TryToFindBasicPrototype (Topic topic, LineIterator startCode, LineIterator endCode,
+																			out TokenIterator prototypeStart, out TokenIterator prototypeEnd)
 			{
 			PrototypeEnders prototypeEnders = GetPrototypeEnders(topic.CommentTypeID);
 
 			if (prototypeEnders == null)
-				{  return;  }
+				{  
+				prototypeStart = startCode.FirstToken(LineBoundsMode.Everything);
+				prototypeEnd = prototypeStart;
+				return false;  
+				}
 
 			// Skip leading blank lines even in languages where line breaks matter.
 			while (startCode < endCode && startCode.IsEmpty(LineBoundsMode.ExcludeWhitespace))
 				{  startCode.Next();  }
 
 			TokenIterator start = startCode.FirstToken(LineBoundsMode.ExcludeWhitespace);
-			TokenIterator iterator = start;
 			TokenIterator limit = endCode.FirstToken(LineBoundsMode.ExcludeWhitespace);
+
+			return TryToFindBasicPrototype(topic, start, limit, out prototypeStart, out prototypeEnd);
+			}
+			
+		
+		/* Function: TryToFindBasicPrototype
+		 * Attempts to find a prototype for the passed <Topic> between the iterators.  If one is found, it will be normalized and put in
+		 * <Topic.Prototoype>.
+		 */
+		protected virtual bool TryToFindBasicPrototype (Topic topic, TokenIterator start, TokenIterator limit, 
+																			out TokenIterator prototypeStart, out TokenIterator prototypeEnd)
+			{
+			PrototypeEnders prototypeEnders = GetPrototypeEnders(topic.CommentTypeID);
+
+			if (prototypeEnders == null)
+				{  
+				prototypeStart = limit;
+				prototypeEnd = limit;
+				return false;  
+				}
+
+			TokenIterator iterator = start;
 
 			bool lineHasExtender = false;
 			bool goodPrototype = false;
@@ -1405,7 +1464,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				// Ender Symbol, not in a bracket
 
 				// We test this before looking for opening brackets so the opening symbols can be used as enders.
-				else if (prototypeEnders.Symbols != null && iterator.MatchesAnyAcrossTokens(prototypeEnders.Symbols) != -1)
+				else if (prototypeEnders.Symbols != null && iterator.MatchesAnyAcrossTokens(prototypeEnders.Symbols, !CaseSensitive) != -1)
 					{
 					goodPrototype = true;
 					break;
@@ -1417,11 +1476,11 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				// We test comments before brackets in case the opening symbols are used for comments.
 				// We don't include < when skipping brackets because there might be an unbalanced pair as part of an operator overload.
 				else if (TryToSkipComment(ref iterator) ||
-							 TryToSkipString(ref iterator) ||
-							 TryToSkipBlock(ref iterator, false))
+						   TryToSkipString(ref iterator) ||
+						   TryToSkipBlock(ref iterator, false))
 					{
 					}
-
+					
 
 				// Everything Else
 
@@ -1437,48 +1496,64 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			if (goodPrototype)
 				{
 				iterator.PreviousPastWhitespace(PreviousPastWhitespaceMode.EndingBounds, start);
-
-				string undecoratedTitle, parameters;
-				Symbols.ParameterString.SplitFromParameters(topic.Title, out undecoratedTitle, out parameters);
-
-				if (start.Tokenizer.ContainsTextBetween(undecoratedTitle, true, start, iterator))
-					{  
-					// goodPrototype remains true.
-					}
-
-				// If "operator" is in the string, make another attempt to see if we can match "operator +" with "operator+".
-				else if (undecoratedTitle.IndexOf("operator", StringComparison.CurrentCultureIgnoreCase) != -1)
-					{
-					string undecoratedTitleOp = extraOperatorWhitespaceRegex.Replace(undecoratedTitle, "");
-					string prototypeString = start.Tokenizer.TextBetween(start, iterator);
-					string prototypeStringOp = extraOperatorWhitespaceRegex.Replace(prototypeString, "");
-
-					if (prototypeStringOp.IndexOf(undecoratedTitleOp, StringComparison.CurrentCultureIgnoreCase) == -1)
-						{  goodPrototype = false;  }
-					}
-
-				// If ".prototype." is in the string, make another attempt to see if we can match with it removed.
-				else if (start.Tokenizer.ContainsTextBetween(".prototype.", true, start, iterator))
-					{
-					string prototypeString = start.Tokenizer.TextBetween(start, iterator);
-					int prototypeIndex = prototypeString.IndexOf(".prototype.", StringComparison.CurrentCultureIgnoreCase);
-
-					// We want to keep the trailing period so String.prototype.Function becomes String.Function.
-					prototypeString = prototypeString.Substring(0, prototypeIndex) + prototypeString.Substring(prototypeIndex + 10);
-
-					if (prototypeString.IndexOf(undecoratedTitle, StringComparison.CurrentCultureIgnoreCase) == -1)
-						{  goodPrototype = false;  }
-					}
-
-				else
-					{  goodPrototype = false;  }
+				goodPrototype = BasicPrototypeMatchesTitle(topic, start, iterator);
 				}
 
 			if (goodPrototype)
 				{
-				Tokenizer prototype = start.Tokenizer.CreateFromIterators(start, iterator);
-				topic.Prototype = NormalizePrototype(prototype);
+				prototypeStart = start;
+				prototypeEnd = iterator;
+				return true;
 				}
+			else
+				{
+				prototypeStart = limit;
+				prototypeEnd = limit;
+				return false;
+				}
+			}
+			
+		
+		/* Function: BasicPrototypeMatchesTitle
+		 * Returns whether the prototype between the iterators matches the title in the passed <Topic>.
+		 */
+		protected virtual bool BasicPrototypeMatchesTitle (Topic topic, TokenIterator prototypeStart, TokenIterator prototypeEnd)
+			{
+			string undecoratedTitle, parameters;
+			Symbols.ParameterString.SplitFromParameters(topic.Title, out undecoratedTitle, out parameters);
+
+			Tokenizer tokenizer = prototypeStart.Tokenizer;
+
+			if (tokenizer.ContainsTextBetween(undecoratedTitle, true, prototypeStart, prototypeEnd))
+				{  
+				return true;
+				}
+
+			// If "operator" is in the string, make another attempt to see if we can match "operator +" with "operator+".
+			else if (undecoratedTitle.IndexOf("operator", StringComparison.CurrentCultureIgnoreCase) != -1)
+				{
+				string undecoratedTitleOp = extraOperatorWhitespaceRegex.Replace(undecoratedTitle, "");
+				string prototypeString = prototypeStart.TextBetween(prototypeEnd);
+				string prototypeStringOp = extraOperatorWhitespaceRegex.Replace(prototypeString, "");
+
+				if (prototypeStringOp.IndexOf(undecoratedTitleOp, StringComparison.CurrentCultureIgnoreCase) != -1)
+					{  return true;  }
+				}
+
+			// If ".prototype." is in the string, make another attempt to see if we can match with it removed.
+			else if (tokenizer.ContainsTextBetween(".prototype.", true, prototypeStart, prototypeEnd))
+				{
+				string prototypeString = prototypeStart.TextBetween(prototypeEnd);
+				int prototypeIndex = prototypeString.IndexOf(".prototype.", StringComparison.CurrentCultureIgnoreCase);
+
+				// We want to keep the trailing period so String.prototype.Function becomes String.Function.
+				prototypeString = prototypeString.Substring(0, prototypeIndex) + prototypeString.Substring(prototypeIndex + 10);
+
+				if (prototypeString.IndexOf(undecoratedTitle, StringComparison.CurrentCultureIgnoreCase) != -1)
+					{  return true;  }
+				}
+
+			return false;
 			}
 			
 		
@@ -3205,7 +3280,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					TokenIterator start, end;
 					parsedClassPrototype.GetParentName(i, out start, out end);
 
-					link.Symbol = SymbolString.FromPlainText_NoParameters( start.Tokenizer.TextBetween(start, end) );
+					link.Symbol = SymbolString.FromPlainText_NoParameters( start.TextBetween(end) );
 					link.Context = topic.PrototypeContext;
 					link.FileID = topic.FileID;
 					link.ClassString = topic.ClassString;
@@ -3318,12 +3393,12 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 
 		/* Function: MarkCParameter
-		 * Marks the tokens in the C-style parameter specified by the bounds with <CommentParsingTypes>.
+		 * Marks the tokens in the C-style parameter specified by the bounds with <PrototypeParsingTypes>.
 		 */
 		protected void MarkCParameter (TokenIterator start, TokenIterator end)
 			{
-			// Pass 1: Count the number of "words" in the parameter prior to the default value and mark the default value.
-			// We'll figure out how to interpret the words in the second pass.
+			// Pass 1: Count the number of "words" in the parameter prior to the default value and mark the default value
+			// separator.  We'll figure out how to interpret the words in the second pass.
 
 			int words = 0;
 			TokenIterator iterator = start;
@@ -3347,21 +3422,21 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 						}
 
 					iterator.NextPastWhitespace(end);
-
 					TokenIterator endOfDefaultValue = end;
-					TokenIterator temp = end;
-					temp.Previous();
 
-					while (temp >= iterator && temp.PrototypeParsingType == PrototypeParsingType.ParamSeparator)
+					TokenIterator lookbehind = endOfDefaultValue;
+					lookbehind.Previous();
+
+					while (lookbehind >= iterator && lookbehind.PrototypeParsingType == PrototypeParsingType.ParamSeparator)
 						{
-						endOfDefaultValue = temp;
-						temp.Previous();
+						endOfDefaultValue = lookbehind;
+						lookbehind.Previous();
 						}
 
 					endOfDefaultValue.PreviousPastWhitespace(PreviousPastWhitespaceMode.EndingBounds, iterator);
 
 					if (iterator < endOfDefaultValue)
-						{  iterator.Tokenizer.SetPrototypeParsingTypeBetween(iterator, endOfDefaultValue, PrototypeParsingType.DefaultValue);  }
+						{  iterator.SetPrototypeParsingTypeBetween(endOfDefaultValue, PrototypeParsingType.DefaultValue);  }
 
 					break;
 					}
@@ -3409,48 +3484,66 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			while (iterator < end)
 				{
 				wordStart = iterator;
+				bool foundWord = false;
+				bool foundBlock = false;
 
 				if (iterator.PrototypeParsingType == PrototypeParsingType.DefaultValueSeparator ||
 					iterator.PrototypeParsingType == PrototypeParsingType.ParamSeparator)
 					{
 					break;
 					}
-				else if (TryToSkipTypeOrVarName(ref iterator, end) ||
-						   TryToSkipComment(ref iterator) ||
-						   TryToSkipString(ref iterator) ||
-						   TryToSkipBlock(ref iterator, true))
+				else if (TryToSkipTypeOrVarName(ref iterator, end))
+					{
+					foundWord = true;
+					}
+				else if (TryToSkipComment(ref iterator) ||
+						  TryToSkipString(ref iterator) ||
+						  TryToSkipBlock(ref iterator, true))
+					{
+					foundWord = true;
+					foundBlock = true;
+					}
+				else
+					{
+					iterator.Next();
+					}
+
+				// Process the word we found
+				if (foundWord)
 					{
 					wordEnd = iterator;
 
 					if (words >= 3)
-						{  wordStart.Tokenizer.SetPrototypeParsingTypeBetween(wordStart, wordEnd, PrototypeParsingType.TypeModifier);  }
+						{
+						if (foundBlock && wordEnd.TokenIndex - wordStart.TokenIndex >= 2)
+							{
+							wordStart.PrototypeParsingType = PrototypeParsingType.OpeningTypeModifier;
+
+							TokenIterator lookbehind = wordEnd;
+							lookbehind.Previous();
+							lookbehind.PrototypeParsingType = PrototypeParsingType.ClosingTypeModifier;
+							}
+						else
+							{
+							wordStart.SetPrototypeParsingTypeBetween(wordEnd, PrototypeParsingType.TypeModifier);
+							}
+						}
 					else if (words == 2)
 						{  
 						MarkType(wordStart, wordEnd);  
 
-						// Go back and change any trailing * or & to name prefixes because even if they're textually attached to the type
-						// (int* x) they're actually part of the name in C++ (int *x).
+						// Go back and change any trailing * or & to parameter modifiers because even if they're textually attached to the type
+						// (int* x) they're actually part of the parameter in C++ (int *x).
 
-						TokenIterator namePrefix = wordEnd;
-						namePrefix.Previous();
+						TokenIterator lookbehind = wordEnd;
+						lookbehind.Previous();
 
-						if (namePrefix >= wordStart && 
-							(namePrefix.Character == '*' || namePrefix.Character == '&' || namePrefix.Character == '^') )
+						while (lookbehind >= wordStart && 
+								 (lookbehind.Character == '*' || lookbehind.Character == '&' || lookbehind.Character == '^') )
 							{
-							for (;;)
-								{
-								TokenIterator temp = namePrefix;
-								temp.Previous();
-								temp.PreviousPastWhitespace(PreviousPastWhitespaceMode.Iterator, wordStart);
-
-								if (temp >= wordStart && (temp.Character == '*' || temp.Character == '&' || temp.Character == '^'))
-									{  namePrefix = temp;  }
-								else
-									{  break;  }
-								}
-
-							namePrefix.Tokenizer.SetPrototypeParsingTypeBetween(namePrefix, wordEnd, 
-																										  PrototypeParsingType.NamePrefix_PartOfType);
+							lookbehind.PrototypeParsingType = PrototypeParsingType.ParamModifier;
+							lookbehind.Previous();
+							lookbehind.PreviousPastWhitespace(PreviousPastWhitespaceMode.Iterator, wordStart);
 							}
 						}
 					else if (words == 1)
@@ -3458,16 +3551,12 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 					words--;
 					}
-				else
-					{
-					iterator.Next();
-					}
 				}
 			}
 
 
 		/* Function: MarkPascalParameter
-		 * Marks the tokens in the Pascal-style parameter specified by the bounds with <CommentParsingTypes>.
+		 * Marks the tokens in the Pascal-style parameter specified by the bounds with <PrototypeParsingTypes>.
 		 */
 		protected void MarkPascalParameter (TokenIterator start, TokenIterator end)
 			{
@@ -3499,21 +3588,21 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 						}
 
 					iterator.NextPastWhitespace(end);
-
 					TokenIterator endOfDefaultValue = end;
-					TokenIterator temp = end;
-					temp.Previous();
 
-					while (temp >= iterator && temp.PrototypeParsingType == PrototypeParsingType.ParamSeparator)
+					TokenIterator lookbehind = end;
+					lookbehind.Previous();
+
+					while (lookbehind >= iterator && lookbehind.PrototypeParsingType == PrototypeParsingType.ParamSeparator)
 						{
-						endOfDefaultValue = temp;
-						temp.Previous();
+						endOfDefaultValue = lookbehind;
+						lookbehind.Previous();
 						}
 
 					endOfDefaultValue.PreviousPastWhitespace(PreviousPastWhitespaceMode.EndingBounds, iterator);
 
 					if (iterator < endOfDefaultValue)
-						{  iterator.Tokenizer.SetPrototypeParsingTypeBetween(iterator, endOfDefaultValue, PrototypeParsingType.DefaultValue);  }
+						{  iterator.SetPrototypeParsingTypeBetween(endOfDefaultValue, PrototypeParsingType.DefaultValue);  }
 
 					break;
 					}
@@ -3564,7 +3653,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 			// Pass 2: Mark the "words" we counted from the first pass.  Before the colon the order of the words goes
 			// [modifier] [modifier] [name].  After the colon it goes [modifier] [modifier] [type].  Not every parameter line will have 
-			// a colon as they could be sharing a type declaration.  An example of modifiers on each side is"const a: array of string".
+			// a colon as they could be sharing a type declaration.  An example of modifiers on each side is "const a: array of string".
 
 
 			// Fix up the word counts.  wordsBeforeColon will be zero if we never found a colon.
@@ -3588,6 +3677,8 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			while (iterator < end)
 				{
 				wordStart = iterator;
+				bool foundWord = false;
+				bool foundBlock = false;
 
 				if (iterator.PrototypeParsingType == PrototypeParsingType.DefaultValueSeparator ||
 					iterator.PrototypeParsingType == PrototypeParsingType.ParamSeparator ||
@@ -3595,22 +3686,45 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					{
 					break;
 					}
-				else if (TryToSkipTypeOrVarName(ref iterator, end) ||
-						   TryToSkipComment(ref iterator) ||
-						   TryToSkipString(ref iterator) ||
-						   TryToSkipBlock(ref iterator, true))
+				else if (TryToSkipTypeOrVarName(ref iterator, end))
+					{
+					foundWord = true;
+					}
+				else if (TryToSkipComment(ref iterator) ||
+						  TryToSkipString(ref iterator) ||
+						  TryToSkipBlock(ref iterator, true))
+					{
+					foundWord = true;
+					foundBlock = true;
+					}
+				else
+					{  iterator.Next();  }
+
+				// Process the word we found
+				if (foundWord)
 					{
 					wordEnd = iterator;
 
 					if (wordsBeforeColon >= 2)
-						{  wordStart.Tokenizer.SetPrototypeParsingTypeBetween(wordStart, wordEnd, PrototypeParsingType.NameModifier_PartOfType);  }
+						{
+						if (foundBlock && wordEnd.TokenIndex - wordStart.TokenIndex >= 2)
+							{
+							wordStart.PrototypeParsingType = PrototypeParsingType.OpeningParamModifier;
+
+							TokenIterator lookbehind = wordEnd;
+							lookbehind.Previous();
+							lookbehind.PrototypeParsingType = PrototypeParsingType.ClosingParamModifier;
+							}
+						else
+							{
+							wordStart.SetPrototypeParsingTypeBetween(wordEnd, PrototypeParsingType.ParamModifier);  
+							}
+						}
 					else if (wordsBeforeColon == 1)
 						{  MarkName(wordStart, wordEnd);  }
 
 					wordsBeforeColon--;
 					}
-				else
-					{  iterator.Next();  }
 				}
 
 
@@ -3624,29 +3738,54 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				while (iterator < end)
 					{
 					wordStart = iterator;
+					bool foundWord = false;
+					bool foundBlock = false;
 
 					if (iterator.PrototypeParsingType == PrototypeParsingType.DefaultValueSeparator ||
 						iterator.PrototypeParsingType == PrototypeParsingType.ParamSeparator)
 						{
 						break;
 						}
-					else if (TryToSkipTypeOrVarName(ref iterator, end) ||
-							   TryToSkipComment(ref iterator) ||
-							   TryToSkipString(ref iterator) ||
-							   TryToSkipBlock(ref iterator, true))
+					else if (TryToSkipTypeOrVarName(ref iterator, end))
 						{
-						wordEnd = iterator;
-
-						if (wordsAfterColon >= 2)
-							{  wordStart.Tokenizer.SetPrototypeParsingTypeBetween(wordStart, wordEnd, PrototypeParsingType.TypeModifier);  }
-						else if (wordsAfterColon == 1)
-							{  MarkType(wordStart, wordEnd);  }
-
-						wordsAfterColon--;
+						foundWord = true;
+						}
+					else if (TryToSkipComment(ref iterator) ||
+							  TryToSkipString(ref iterator) ||
+							  TryToSkipBlock(ref iterator, true))
+						{
+						foundWord = true;
+						foundBlock = true;
 						}
 					else
 						{
 						iterator.Next();
+						}
+
+					// Process the block we found
+					if (foundWord)
+						{
+						wordEnd = iterator;
+
+						if (wordsAfterColon >= 2)
+							{  
+							if (foundBlock && wordEnd.TokenIndex - wordStart.TokenIndex >= 2)
+								{
+								wordStart.PrototypeParsingType = PrototypeParsingType.OpeningTypeModifier;
+
+								TokenIterator lookbehind = wordEnd;
+								lookbehind.Previous();
+								lookbehind.PrototypeParsingType = PrototypeParsingType.ClosingTypeModifier;
+								}
+							else
+								{
+								wordStart.SetPrototypeParsingTypeBetween(wordEnd, PrototypeParsingType.TypeModifier);  
+								}
+							}
+						else if (wordsAfterColon == 1)
+							{  MarkType(wordStart, wordEnd);  }
+
+						wordsAfterColon--;
 						}
 					}
 				}
@@ -3709,7 +3848,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					wordEnd = iterator;
 
 					if (words >= 2)
-						{  wordStart.Tokenizer.SetPrototypeParsingTypeBetween(wordStart, wordEnd, PrototypeParsingType.TypeModifier);  }
+						{  wordStart.SetPrototypeParsingTypeBetween(wordEnd, PrototypeParsingType.TypeModifier);  }
 					else if (words == 1)
 						{  MarkType(wordStart, wordEnd);  }
 
@@ -3726,11 +3865,17 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 		 */
 		protected void MarkType (TokenIterator start, TokenIterator end)
 			{
+			// Mark all pre-text symbols as type modifiers.  This includes :: on ::globals.
+			while (start < end && 
+					 start.FundamentalType != FundamentalType.Text && 
+					 start.Character != '_')
+				{
+				start.PrototypeParsingType = PrototypeParsingType.TypeModifier;
+				start.Next();
+				}
+
 			TokenIterator iterator = start;
 			TokenIterator qualifierEnd = start;
-
-			while (iterator < end && iterator.FundamentalType != FundamentalType.Text && iterator.Character != '_')
-				{  iterator.Next();  }
 
 			while (iterator < end)
 				{
@@ -3753,9 +3898,9 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				}
 
 			if (qualifierEnd > start)
-				{  start.Tokenizer.SetPrototypeParsingTypeBetween(start, qualifierEnd, PrototypeParsingType.TypeQualifier);  }
+				{  start.SetPrototypeParsingTypeBetween(qualifierEnd, PrototypeParsingType.TypeQualifier);  }
 			if (iterator > qualifierEnd)
-				{  qualifierEnd.Tokenizer.SetPrototypeParsingTypeBetween(qualifierEnd, iterator, PrototypeParsingType.Type);  }
+				{  qualifierEnd.SetPrototypeParsingTypeBetween(iterator, PrototypeParsingType.Type);  }
 			if (iterator < end)
 				{  MarkTypeSuffix(iterator, end);  }
 			}
@@ -3776,11 +3921,11 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 
 				if (TryToSkipBlock(ref iterator, true))
 					{
-					prevIterator.PrototypeParsingType = PrototypeParsingType.OpeningTypeSuffix;
+					prevIterator.PrototypeParsingType = PrototypeParsingType.OpeningTypeModifier;
 					prevIterator.Next();
 
 					iterator.Previous();
-					iterator.PrototypeParsingType = PrototypeParsingType.ClosingTypeSuffix;
+					iterator.PrototypeParsingType = PrototypeParsingType.ClosingTypeModifier;
 
 					MarkTypeSuffixParamList(prevIterator, iterator);
 
@@ -3788,7 +3933,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					}
 				else
 					{
-					iterator.PrototypeParsingType = PrototypeParsingType.TypeSuffix;
+					iterator.PrototypeParsingType = PrototypeParsingType.TypeModifier;
 					iterator.Next();
 					}
 				}
@@ -3844,9 +3989,9 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			while (iterator < end)
 				{
 				if (TryToSkipTypeOrVarName(ref iterator, end) ||
-					 TryToSkipComment(ref iterator) ||
-					 TryToSkipString(ref iterator) ||
-					 TryToSkipBlock(ref iterator, true))
+					TryToSkipComment(ref iterator) ||
+					TryToSkipString(ref iterator) ||
+					TryToSkipBlock(ref iterator, true))
 					{
 					// If there was a comment in the prototype, that means it specifically wasn't filtered out because it was something
 					// significant like a Splint comment or /*out*/.  Treat it like a modifier.
@@ -3882,9 +4027,9 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				markWord = false;
 
 				if (TryToSkipTypeOrVarName(ref iterator, end) ||
-					 TryToSkipComment(ref iterator) ||
-					 TryToSkipString(ref iterator) ||
-					 TryToSkipBlock(ref iterator, true))
+					TryToSkipComment(ref iterator) ||
+					TryToSkipString(ref iterator) ||
+					TryToSkipBlock(ref iterator, true))
 					{
 					markWord = true;
 					endWord = iterator;
@@ -3897,7 +4042,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				if (markWord)
 					{
 					if (words >= 2)
-						{  startWord.Tokenizer.SetPrototypeParsingTypeBetween(startWord, endWord, PrototypeParsingType.TypeModifier);  }
+						{  startWord.SetPrototypeParsingTypeBetween(endWord, PrototypeParsingType.TypeModifier);  }
 					else if (words == 1)
 						{  MarkType(startWord, endWord);  }
 
@@ -3912,12 +4057,16 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 		 */
 		protected void MarkName (TokenIterator start, TokenIterator end)
 			{
-			while (start < end && start.FundamentalType != FundamentalType.Text && start.Character != '_')
+			// Mark all pre-text symbols as param modifiers.  This includes :: on ::globals.
+			while (start < end && 
+					 start.FundamentalType != FundamentalType.Text && 
+					 start.Character != '_')
 				{
-				start.PrototypeParsingType = PrototypeParsingType.NamePrefix_PartOfType;
+				start.PrototypeParsingType = PrototypeParsingType.ParamModifier;
 				start.Next();
 				}
 
+			// Mark the name.  Qualifiers get included as part of the name.
 			while (start < end)
 				{
 				if (start.FundamentalType == FundamentalType.Text || start.Character == '_' || start.Character == '.')
@@ -3934,9 +4083,26 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 					{  break;  }
 				}
 
+			// Mark all following symbols as modifiers, detecting any blocks found
 			if (start < end)
 				{
-				start.Tokenizer.SetPrototypeParsingTypeBetween(start, end, PrototypeParsingType.NameSuffix_PartOfType);
+				TokenIterator blockEnd = start;
+
+				if (TryToSkipBlock(ref blockEnd, true) && blockEnd <= end)
+					{
+					start.PrototypeParsingType = PrototypeParsingType.OpeningParamModifier;
+					
+					blockEnd.Previous();
+					blockEnd.PrototypeParsingType = PrototypeParsingType.ClosingParamModifier;
+
+					start = blockEnd;
+					start.Next();
+					}
+				else
+					{
+					start.PrototypeParsingType = PrototypeParsingType.ParamModifier;
+					start.Next();
+					}
 				}
 			}
 
@@ -4046,7 +4212,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				{  iterator.Next();  }
 
 			if (mode == ParseMode.SyntaxHighlight)
-				{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfComment, iterator, SyntaxHighlightingType.Comment);  }
+				{  startOfComment.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.Comment);  }
 
 			return true;
 			}
@@ -4113,7 +4279,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				{  iterator.NextByCharacters(closingSymbol.Length);  }
 
 			if (mode == ParseMode.SyntaxHighlight)
-				{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfComment, iterator, SyntaxHighlightingType.Comment);  }
+				{  startOfComment.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.Comment);  }
 
 			// Return true even if the iterator reached the end of the content before finding a closing symbol.
 			return true;
@@ -4161,7 +4327,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 		 *		- <ParseMode.SyntaxHighlight>
 		 *		- Everything else is treated as <ParseMode.IterateOnly>.
 		 */
-		protected bool TryToSkipString (ref TokenIterator iterator, ParseMode mode = ParseMode.IterateOnly)
+		virtual protected bool TryToSkipString (ref TokenIterator iterator, ParseMode mode = ParseMode.IterateOnly)
 			{
 			if (iterator.Character != '"' && iterator.Character != '\'')
 				{  return false;  }
@@ -4185,7 +4351,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				}
 
 			if (mode == ParseMode.SyntaxHighlight)
-				{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfString, iterator, SyntaxHighlightingType.String);  }
+				{  startOfString.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.String);  }
 
 			// Return true even if the iterator reached the end of the content before finding a closing quote.
 			return true;
@@ -4204,7 +4370,8 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 		 */
 		protected bool TryToSkipNumber (ref TokenIterator iterator, ParseMode mode = ParseMode.IterateOnly)
 			{
-			if ( ((iterator.Character >= '0' && iterator.Character <= '9') || iterator.Character == '-' || iterator.Character == '.') == false)
+			if ( ((iterator.Character >= '0' && iterator.Character <= '9') || 
+				   iterator.Character == '-' || iterator.Character == '+' || iterator.Character == '.') == false)
 				{  return false;  }
 
 			TokenIterator lookahead = iterator;
@@ -4212,7 +4379,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			bool lastCharWasE = false;
 			bool isHex = false;
 
-			if (lookahead.Character == '-')
+			if (lookahead.Character == '-' || lookahead.Character == '+')
 				{  
 				// Distinguish between -1 and x-1
 
@@ -4283,7 +4450,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 				}
 
 			if (mode == ParseMode.SyntaxHighlight)
-				{  iterator.Tokenizer.SetSyntaxHighlightingTypeBetween(startOfNumber, iterator, SyntaxHighlightingType.Number);  }
+				{  startOfNumber.SetSyntaxHighlightingTypeBetween(iterator, SyntaxHighlightingType.Number);  }
 
 			return true;
 			}
@@ -4364,18 +4531,18 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 			{
 			if (iterator < limit &&
 				 (iterator.FundamentalType == FundamentalType.Text ||
-				  iterator.Character == '_' || iterator.Character == '*' || iterator.Character == '&' ||
+				  iterator.Character == '_' || iterator.Character == '*' || iterator.Character == '&' || iterator.Character == '^' ||
 				  iterator.Character == '$' || iterator.Character == '@' || iterator.Character == '%') )
 				{
 				iterator.Next();
 
 				while (iterator < limit)
 					{
-					// Add dot to our previous list.  Also ^ for Pascal pointers and ? for C# nullable types.
-					if (iterator.FundamentalType == FundamentalType.Text || iterator.Character == '.' ||
+					// Add dot to our previous list.  Also add ? for C# nullable types.
+					if (iterator.FundamentalType == FundamentalType.Text ||
 						 iterator.Character == '_' || iterator.Character == '*' || iterator.Character == '&' || iterator.Character == '^' ||
 						 iterator.Character == '$' || iterator.Character == '@' || iterator.Character == '%' ||
-						 iterator.Character == '^' || iterator.Character == '?')
+						 iterator.Character == '.' || iterator.Character == '?')
 						{  iterator.Next();  }
 
 					else if (iterator.MatchesAcrossTokens("::"))
@@ -4453,11 +4620,11 @@ namespace CodeClear.NaturalDocs.Engine.Languages
 		protected void ResetTokensBetween (TokenIterator start, TokenIterator end, ParseMode mode)
 			{
 			if (mode == ParseMode.SyntaxHighlight)
-				{  start.Tokenizer.SetSyntaxHighlightingTypeBetween(start, end, SyntaxHighlightingType.Null);  }
+				{  start.SetSyntaxHighlightingTypeBetween(end, SyntaxHighlightingType.Null);  }
 			else if (mode == ParseMode.ParsePrototype)
-				{  start.Tokenizer.SetPrototypeParsingTypeBetween(start, end, PrototypeParsingType.Null);  }
+				{  start.SetPrototypeParsingTypeBetween(end, PrototypeParsingType.Null);  }
 			else if (mode == ParseMode.ParseClassPrototype)
-				{  start.Tokenizer.SetClassPrototypeParsingTypeBetween(start, end, ClassPrototypeParsingType.Null);  }
+				{  start.SetClassPrototypeParsingTypeBetween(end, ClassPrototypeParsingType.Null);  }
 			}
 
 

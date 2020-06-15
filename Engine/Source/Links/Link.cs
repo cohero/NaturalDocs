@@ -5,7 +5,7 @@
  * A class encapsulating all the information available about a link.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -74,25 +74,25 @@ namespace CodeClear.NaturalDocs.Engine.Links
 			}
 			
 			
-		/* Function: SameIDPropertiesAs
-		 * Returns whether the identifying properties of the link (<Type>, <TextOrSymbol>, <Context>, <FileID>, <ClassString>, 
+		/* Function: SameIdentifyingPropertiesAs
+		 * Returns whether the identifying properties of the link (<Type>, <TextOrSymbol>, <Context>, <ClassString>, <FileID>,
 		 * <LanguageID>) are the same as the passed one.
 		 */
-		public bool SameIDPropertiesAs (Link other)
+		public bool SameIdentifyingPropertiesAs (Link other)
 			{
-			return (CompareIDPropertiesTo(other) == 0);
+			return (CompareIdentifyingPropertiesTo(other) == 0);
 			}
 
 
-		/* Function: CompareIDPropertiesTo
+		/* Function: CompareIdentifyingPropertiesTo
 		 * 
-		 * Compares the identifying properties of the link (<Type>, <TextOrSymbol>, <Context>, <FileID>, <LanguageID>)
-		 * and returns a value similar to a string comparison result which is suitable for sorting a list of Links.  It will return zero
-		 * if all the properties are equal.
+		 * Compares the identifying properties of the link (<Type>, <TextOrSymbol>, <Context>, <ClassString>, <FileID>, 
+		 * <LanguageID>) and returns a value similar to a string comparison result which is suitable for sorting a list of Links.  It 
+		 * will return zero if all the properties are equal.
 		 */
-		public int CompareIDPropertiesTo (Link other)
+		public int CompareIdentifyingPropertiesTo (Link other)
 			{
-			// DEPENDENCY: What CopyNonIDPropertiesFrom() does depends on what this compares.
+			// DEPENDENCY: What CopyNonIdentifyingPropertiesFrom() does depends on what this compares.
 
 			#if DEBUG
 			if (ignoredFields != IgnoreFields.None || other.ignoredFields != IgnoreFields.None)
@@ -150,13 +150,13 @@ namespace CodeClear.NaturalDocs.Engine.Links
 			}
 
 
-		/* Function: CopyNonIDPropertiesFrom
-		 * Makes this link copy all the properties not tested by <CompareIDPropertiesTo()> and <SameIDPropertiesAs()> from 
-		 * the passed link.
+		/* Function: CopyNonIdentifyingPropertiesFrom
+		 * Makes this link copy all the properties not tested by <CompareIdentifyingPropertiesTo()> and 
+		 * <SameIdentifyingPropertiesAs()> from the passed link.
 		 */
-		public void CopyNonIDPropertiesFrom (Link other)
+		public void CopyNonIdentifyingPropertiesFrom (Link other)
 			{
-			// DEPENDENCY: What this copies depends on what CompareIDPropertiesTo() does not.
+			// DEPENDENCY: What this copies depends on what CompareIdentifyingPropertiesTo() does not.
 
 			linkID = other.LinkID;
 			contextID = other.ContextID;
@@ -496,7 +496,7 @@ namespace CodeClear.NaturalDocs.Engine.Links
 
 
 		/* Property: EndingSymbol
-		 * The ending symbol of the link.  If this is a Type or ClassParent link this is the only one needed, but if it's
+		 * The ending symbol of the link.  If this is a Type or ClassParent link this is the only ending symbol, but if it's
 		 * a Natural Docs link there may be more in <CodeDB.AlternateLinkEndingSymbols>.
 		 */
 		public Symbols.EndingSymbol EndingSymbol

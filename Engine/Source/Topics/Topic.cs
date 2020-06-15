@@ -5,12 +5,13 @@
  * A class encapsulating all the information available about a topic.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
 
 using System;
+using CodeClear.NaturalDocs.Engine.Prototypes;
 using CodeClear.NaturalDocs.Engine.Symbols;
 
 
@@ -1333,7 +1334,7 @@ namespace CodeClear.NaturalDocs.Engine.Topics
 						for (int i = 0; i < parsedPrototype.NumberOfParameters; i++)
 							{
 							parsedPrototype.GetBaseParameterType(i, out start, out end);
-							parameterTypes[i] = parsedPrototype.Tokenizer.TextBetween(start, end);
+							parameterTypes[i] = start.TextBetween(end);
 							}
 
 						prototypeParameters = ParameterString.FromParameterTypes(parameterTypes);

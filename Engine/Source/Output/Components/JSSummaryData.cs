@@ -18,7 +18,7 @@
  * 
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -26,7 +26,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using CodeClear.NaturalDocs.Engine.Collections;
 using CodeClear.NaturalDocs.Engine.Languages;
 using CodeClear.NaturalDocs.Engine.Links;
 using CodeClear.NaturalDocs.Engine.Topics;
@@ -53,11 +52,12 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 			fileHashPath = null;
 			topics = null;
 
-			htmlTopic = new HTMLTopic(topicPage);
 			usedLanguages = new List<Language>();
 			usedCommentTypes = new List<CommentType>();
 
-			htmlComponent = new HTMLComponent(topicPage);
+			HTML.Context context = new HTML.Context(HTMLBuilder, topicPage);
+			tooltipBuilder = new HTML.Components.Tooltip(context);
+			formattedTextBuilder = new HTML.Components.FormattedText(context);
 			}
 
 
@@ -327,9 +327,19 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 				output.Append(",");
 
 				if (topic.IsEmbedded == false)
-					{  
+					{
+					var commentType = EngineInstance.CommentTypes.FromID(topic.CommentTypeID);
+					HTML.Components.FormattedText.WrappedTitleMode mode;
+
+					if (commentType.Flags.File)
+						{  mode = HTML.Components.FormattedText.WrappedTitleMode.File;  }
+					else if (commentType.Flags.Code)
+						{  mode = HTML.Components.FormattedText.WrappedTitleMode.Code;  }
+					else
+						{  mode = HTML.Components.FormattedText.WrappedTitleMode.None;  }
+
 					output.Append('"');
-					output.StringEscapeAndAppend( htmlComponent.BuildWrappedTitle(topic.Title, topic.CommentTypeID) );  
+					output.StringEscapeAndAppend( formattedTextBuilder.BuildWrappedTitle(topic.Title, mode) );  
 					output.Append('"');
 					}
 				// Otherwise leave an empty space before the comma.  We don't have to write out "undefined".
@@ -372,6 +382,7 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 				}
 
 			bool first = true;
+			HTML.Context context = new HTML.Context(HTMLBuilder);
 
 			for (int topicIndex = 0; topicIndex < topics.Count; topicIndex++)
 				{
@@ -379,7 +390,7 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 
 				if (topic.IsEmbedded == false)
 					{
-					string toolTipHTML = htmlTopic.BuildToolTip(topic, links);
+					string toolTipHTML = tooltipBuilder.BuildToolTip(topic, context, links);
 
 					if (toolTipHTML != null)
 						{
@@ -463,11 +474,6 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 		 */
 		protected IList<Link> links;
 
-		/* var: htmlTopic
-		 * A <HTMLTopic> to build tooltips.
-		 */
-		protected HTMLTopic htmlTopic;
-
 		/* var: usedLanguages
 		 * A list of the languages used in <topics>.  The order in which they appear here will be the order in which they
 		 * appear in the JavaScript array.
@@ -480,10 +486,15 @@ namespace CodeClear.NaturalDocs.Engine.Output.Components
 		 */
 		protected List<CommentType> usedCommentTypes;
 
-		/* var: htmlComponent
-		 * A private <HTMLComponent> object used for building wrapped titles.
+		/* var: tooltipBuilder
+		 * A <HTML.Components.Tooltip> to build tooltips.
 		 */
-		protected HTMLComponent htmlComponent;
+		protected HTML.Components.Tooltip tooltipBuilder;
+
+		/* var: formattedTextBuilder
+		 * A <HTML.Components.FormattedText> object used for building wrapped titles.
+		 */
+		protected HTML.Components.FormattedText formattedTextBuilder;
 
 		}
 	}

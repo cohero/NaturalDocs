@@ -6,18 +6,13 @@
  * 
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
 
-using System;
-using System.Collections.Generic;
-using CodeClear.NaturalDocs.Engine.Collections;
-using CodeClear.NaturalDocs.Engine.Comments;
-using CodeClear.NaturalDocs.Engine.Symbols;
+using CodeClear.NaturalDocs.Engine.Prototypes;
 using CodeClear.NaturalDocs.Engine.Tokenization;
-using CodeClear.NaturalDocs.Engine.Topics;
 
 
 namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
@@ -101,7 +96,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 				}
 
 			if (mode == ParseMode.ParseClassPrototype)
-				{  iterator.Tokenizer.SetClassPrototypeParsingTypeBetween(startOfIdentifier, lookahead, ClassPrototypeParsingType.Name);  }
+				{  startOfIdentifier.SetClassPrototypeParsingTypeBetween(lookahead, ClassPrototypeParsingType.Name);  }
 
 			TryToSkipWhitespace(ref lookahead);
 
@@ -125,7 +120,7 @@ namespace CodeClear.NaturalDocs.Engine.Languages.Parsers
 					}
 
 				if (mode == ParseMode.ParseClassPrototype)
-					{  lookahead.Tokenizer.SetClassPrototypeParsingTypeBetween(startOfParent, lookahead, ClassPrototypeParsingType.Name);  }
+					{  startOfParent.SetClassPrototypeParsingTypeBetween(lookahead, ClassPrototypeParsingType.Name);  }
 				}
 
 

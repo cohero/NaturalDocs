@@ -5,7 +5,7 @@
  * A base class used for shared functionality when processing JS and CSS files.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -504,7 +504,7 @@ namespace CodeClear.NaturalDocs.Engine.Output
 					lookahead.Character == '_'))
 				{  lookahead.Next();  }
 
-			identifier = iterator.Tokenizer.TextBetween(iterator, lookahead);
+			identifier = iterator.TextBetween(lookahead);
 			iterator = lookahead;
 			return true;
 			}
@@ -546,10 +546,10 @@ namespace CodeClear.NaturalDocs.Engine.Output
 				return false;
 				}
 
-			localeIdentifier = iterator.Tokenizer.TextBetween(startOfLocaleIdentifier, lookahead);
+			localeIdentifier = startOfLocaleIdentifier.TextBetween(lookahead);
 			lookahead.Next();
 
-			identifier = iterator.Tokenizer.TextBetween(iterator, lookahead);
+			identifier = iterator.TextBetween(lookahead);
 
 			iterator = lookahead;
 			return true;
@@ -594,12 +594,12 @@ namespace CodeClear.NaturalDocs.Engine.Output
 				GenericSkip(ref lookahead);
 				}
 
-			value = iterator.Tokenizer.TextBetween(startOfValue, lookahead);
+			value = startOfValue.TextBetween(lookahead);
 
 			if (lookahead.Character == ';')
 				{  lookahead.Next();  }
 
-			declaration = iterator.Tokenizer.TextBetween(iterator, lookahead);
+			declaration = iterator.TextBetween(lookahead);
 
 			iterator = lookahead;
 			return true;

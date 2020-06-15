@@ -5,7 +5,7 @@
  * A class containing information about a file.
  */
 
-// This file is part of Natural Docs, which is Copyright © 2003-2018 Code Clear LLC.
+// This file is part of Natural Docs, which is Copyright © 2003-2020 Code Clear LLC.
 // Natural Docs is licensed under version 3 of the GNU Affero General Public License (AGPL)
 // Refer to License.txt for the complete details
 
@@ -24,12 +24,27 @@ namespace CodeClear.NaturalDocs.Engine.Files
 		
 		/* Function: File
 		 */
-		public File (Path newFileName, FileType newType, DateTime newLastModified) : base()
+		public File (Path fileName, FileType type, DateTime lastModified) : base()
 			{
-			fileName = newFileName;
-			type = newType;
-			lastModified = newLastModified;
-			flags = 0;
+			this.fileName = fileName;
+			this.type = type;
+			this.lastModified = lastModified;
+			this.deleted = false;
+			}
+
+
+		/* Function: CreateSnapshotOfProperties
+		 * Creates a duplicate File object that contains all the file's properties at the time this function was called.
+		 * The duplicate will not change so it can be used to compare to the original File object later to see if any 
+		 * of the properties have changed.
+		 */
+		public File CreateSnapshotOfProperties ()
+			{
+			File duplicate = new File (fileName, type, lastModified);
+			duplicate.ID = ID;
+			duplicate.deleted = deleted;
+
+			return duplicate;
 			}
 			
 			
@@ -67,81 +82,15 @@ namespace CodeClear.NaturalDocs.Engine.Files
 				{  lastModified = value;  }
 			}
 			
-		/* Property: InBinaryFile
-		 * Whether this file is defined in <Files.nd>.
+		/* Property: Deleted
+		 * Whether this file is deleted.  The File object will continue to exist until the deletion is fully processed.
 		 */
-		public bool InBinaryFile
+		public bool Deleted
 			{
 			get
-				{  return ( (flags & FileFlags.InBinaryFile) != 0 );  }
+				{  return deleted;  }
 			set
-				{
-				if (value == true)
-					{  flags |= FileFlags.InBinaryFile;  }
-				else
-					{  flags &= ~FileFlags.InBinaryFile;  }
-				}
-			}
-			
-		/* Property: InFileSource
-		 * Whether this file was found in one of <Engine.Files.Manager's> file sources.
-		 */
-		public bool InFileSource
-			{
-			get
-				{  return ( (flags & FileFlags.InFileSource) != 0 );  }
-			set
-				{
-				if (value == true)
-					{  flags |= FileFlags.InFileSource;  }
-				else
-					{  flags &= ~FileFlags.InFileSource;  }
-				}
-			}
-			
-		/* Property: Status
-		 * The file's status.  Will be <FileFlags.Unchanged>, <FileFlags.NewOrChanged>, or <FileFlags.Deleted>.
-		 */
-		public FileFlags Status
-			{
-			get
-				{  return (flags & FileFlags.StatusMask);  }
-			set
-				{
-				flags &= ~FileFlags.StatusMask;
-				flags |= value;
-				}
-			}
-			
-		/* Property: Claimed
-		 * Whether the file is currently claimed.
-		 */
-		public bool Claimed
-			{
-			get
-				{  return ( (flags & FileFlags.Claimed) != 0 );  }
-			set
-				{
-				if (value == true)
-					{  flags |= FileFlags.Claimed;  }
-				else
-					{  flags &= ~FileFlags.Claimed;  }
-				}
-			}
-			
-		/* Property: StatusSinceClaimed
-		 * The file's status since it was claimed.  Will be <FileFlags.UnchangedSinceClaimed>, <FileFlags.NewOrChangedSinceClaimed>, or
-		 * <FileFlags.DeletedSinceClaimed>.  This value is undefined when <Claimed> is false.
-		 */
-		public FileFlags StatusSinceClaimed
-			{
-			get
-				{  return (flags & FileFlags.StatusSinceClaimedMask);  }
-			set
-				{
-				flags &= ~FileFlags.StatusSinceClaimedMask;
-				flags |= value;
-				}
+				{  deleted = value;  }
 			}
 			
 		/* Property: Name
@@ -154,6 +103,7 @@ namespace CodeClear.NaturalDocs.Engine.Files
 			}
 			
 			
+
 		// Group: Variables
 		// __________________________________________________________________________
 		
@@ -173,9 +123,10 @@ namespace CodeClear.NaturalDocs.Engine.Files
 		 */
 		protected DateTime lastModified;
 		
-		/* var: flags
-		 * Informational flags about the file.
+		/* var: deleted
+		 * Whether this file was deleted, since the File object will persist until it's fully processed.
 		 */
-		protected FileFlags flags;
+		protected bool deleted;
+
 		}
 	}
